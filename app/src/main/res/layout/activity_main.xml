@@ -19,12 +19,13 @@
         <TextView android:text=""
             android:id="@+id/out"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content">
+            android:layout_height="20dp">
         </TextView>
         <Button
             android:id="@+id/button_turnon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_below="@+id/out"
             android:layout_alignParentLeft="true"
             android:layout_alignParentTop="true"
             android:layout_marginLeft="30dp"
@@ -48,6 +49,14 @@
             android:layout_below="@+id/button_discover"
             android:layout_marginTop="10dp"
             android:text="TURN_OFF" />
+
+        <TextView
+            android:id="@+id/log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/button_turnoff"
+            android:layout_marginLeft="20dp"
+            android:hint="proximity" />
 
     </RelativeLayout>
 

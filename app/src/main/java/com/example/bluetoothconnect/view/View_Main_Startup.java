@@ -1,5 +1,7 @@
 package com.example.bluetoothconnect.view;
 
+import android.Manifest;
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
@@ -8,8 +10,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Region;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.RemoteException;
 import android.util.Log;
 import android.view.View;
@@ -19,6 +23,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.example.bluetoothconnect.R;
 import com.example.bluetoothconnect.control.Control_Main;
@@ -31,7 +37,19 @@ import org.altbeacon.beacon.Identifier;
 import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.RangeNotifier;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
 
 public class View_Main_Startup extends AppCompatActivity  implements BeaconConsumer {
 
@@ -47,6 +65,14 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
 
     private static final int REQUEST_ENABLE_BT = 0;
     private static final int REQUEST_DISCOVERABLE_BT = 0;
+
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
+    public static final int REQUEST_WRITE_STORAGE = 112;
+    private TextView tv;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -162,16 +188,28 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         //connectToMAC ("A4:6C:F1:06:30:27");
         connectToMAC ("C3:AB:45:C9:D8:54"); //fitbit
 
+        tv = (TextView) findViewById(R.id.log);
+        tv.setText("onCreate");
+        verifyStoragePermissions(this);
+        requestPermission(this);
+        checkExternalMedia();
+        //writeToSDFile("test");
+        //readRaw();
+
         Log.i(logtag, "onCreate, end");
     }
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.i(logtag, "BroadcastReceiver.onReceive");
+            //Log.i(logtag, "BroadcastReceiver.onReceive");
             String action = intent.getAction();
             BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-            Log.i(logtag, "BroadcastReceiver.onReceive. Device="+device+", "+device.getType()+", "+device.getName());
+
+            Date currentTime = Calendar.getInstance().getTime();
+            String event = (currentTime.getYear()+1900)+"."+(currentTime.getMonth()+1)+"."+currentTime.getDay()+" "+currentTime.getHours()+":"+currentTime.getMinutes()+":"+currentTime.getSeconds()+": "+device.getName()+" ("+device.getType()+", "+device+") "+action;
+            Log.i(logtag, "BroadcastReceiver.onReceive. "+event);
+            writeToSDFile(event);
 
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 Log.i(logtag, "BroadcastReceiver.onReceive ACTION_FOUND");
@@ -222,7 +260,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
 
     @Override
     public void onBeaconServiceConnect() {
-        Log.i(logtag, "onBeaconServiceConnect 1 start");
+        //Log.i(logtag, "onBeaconServiceConnect 1 start");
         beaconManager.removeAllRangeNotifiers();
         Log.i(logtag, "onBeaconServiceConnect 2, før addRangeNotifier");
         beaconManager.addRangeNotifier(new RangeNotifier() {
@@ -248,7 +286,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
             }
 
         });
-        Log.i(logtag, "onBeaconServiceConnect 3, etter addRangeNotifier, før setMonitorNotifier");
+        //Log.i(logtag, "onBeaconServiceConnect 3, etter addRangeNotifier, før setMonitorNotifier");
         beaconManager.setMonitorNotifier(new MonitorNotifier() {
 
             @Override
@@ -267,7 +305,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
 
             @Override
             public void didExitRegion(org.altbeacon.beacon.Region region) {
-                Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion");
+                //Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion");
                 try {
                     Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion. Did Exit Region");
                     beaconManager.stopRangingBeaconsInRegion(region);
@@ -285,7 +323,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
             }
 
         });
-        Log.i(logtag, "onBeaconServiceConnect 4, etter setMonitorNotifier, før setRangeNotifier");
+        //Log.i(logtag, "onBeaconServiceConnect 4, etter setMonitorNotifier, før setRangeNotifier");
         beaconManager.setRangeNotifier(new RangeNotifier() {
             @Override
             //Log out welche beacons in der Nähe sind
@@ -305,7 +343,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
                 }
             }
         });
-        Log.i(logtag, "onBeaconServiceConnect 5, etter setRangeNotifier, før startMonitoringBeaconsInRegion");
+        //Log.i(logtag, "onBeaconServiceConnect 5, etter setRangeNotifier, før startMonitoringBeaconsInRegion");
 
         try {
             Log.d(logtag, "onBeaconServiceConnect try start");
@@ -316,10 +354,127 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
             Log.i(logtag, "onBeaconServiceConnect failed "+e.toString());
             Log.i(logtag, "onBeaconServiceConnect failed "+e.getStackTrace());
         }
-        Log.i(logtag, "onBeaconServiceConnect 6, etter startMonitoringBeaconsInRegion");
+        //Log.i(logtag, "onBeaconServiceConnect 6, etter startMonitoringBeaconsInRegion");
         beaconManager.getBeaconParsers().add(new BeaconParser()
                 .setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
-        Log.i(logtag, "onBeaconServiceConnect 7, end");
+        //Log.i(logtag, "onBeaconServiceConnect 7, end");
+    }
+
+
+    private void requestPermission(Activity context) {
+        Log.i(logtag, "requestPermission 1 start");
+        boolean hasPermission = (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
+        if (!hasPermission) {
+            Log.i(logtag, "requestPermission 2a mangler permissions");
+            ActivityCompat.requestPermissions(context,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    REQUEST_WRITE_STORAGE);
+        } else {
+            Log.i(logtag, "requestPermission 2b har permissions");
+            String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/new_folder";
+            File storageDir = new File(path);
+            if (!storageDir.exists() && !storageDir.mkdirs()) {
+                Log.i(logtag, "requestPermission 2b2, !storageDir.exists() && !storageDir.mkdirs()");
+            }
+        }
+    }
+
+    private void checkExternalMedia(){
+        Log.i(logtag, "checkExternalMedia 1 start");
+        boolean mExternalStorageAvailable = false;
+        boolean mExternalStorageWriteable = false;
+        String state = Environment.getExternalStorageState();
+
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            mExternalStorageAvailable = mExternalStorageWriteable = true;
+            Log.i(logtag, "checkExternalMedia 2a");
+        } else if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
+            mExternalStorageAvailable = true;
+            mExternalStorageWriteable = false;
+            Log.i(logtag, "checkExternalMedia 2b");
+        } else {
+            mExternalStorageAvailable = mExternalStorageWriteable = false;
+            Log.i(logtag, "checkExternalMedia 2c");
+        }
+        tv.setText("\n\nExternal Media: readable=" +mExternalStorageAvailable+" writable="+mExternalStorageWriteable);
+    }
+
+    private void writeToSDFile(String inputSentence){
+        Log.i(logtag, "writeToSDFile 1 start");
+        //Log.i(logtag, "saveInputToFile: 1 "+inputSentence);
+        //setProgressText("save Input To File");
+
+        try {
+            //Log.i(logtag, "saveInputToFile: 3 skal lagres: "+inputSentence);
+            File root = android.os.Environment.getExternalStorageDirectory();
+            //Log.i(logtag, "writeToSDFile 2 root="+root.exists());
+            File dir = new File (root.getAbsolutePath() + "/Berits_apper");
+            //Log.i(logtag, "writeToSDFile 3 dir="+dir.exists());
+            File inputsFile = new File(dir, "BluetoothConnect.txt");
+            //Log.i(logtag, "writeToSDFile 4 inputsFile="+inputsFile.exists());
+            try {
+                dir.mkdirs();
+            } catch (Exception e){
+            }
+
+            FileOutputStream fos = new FileOutputStream (inputsFile.getAbsolutePath(), true); // true will be same as Context.MODE_APPEND
+
+            fos.write(inputSentence.getBytes());
+            fos.write(System.getProperty("line.separator").getBytes());
+            //filnavn = fos.toString();
+            fos.close();
+
+            //readFileToExperience();
+        } catch (Exception e) {
+            Log.i(logtag, "saveInputToFile 4b inputs failed");
+            e.printStackTrace();
+        }
+        //Log.i(logtag, "saveInputToFile: 4");
+    }
+
+    private void readRaw(){
+        Log.i(logtag, "readRaw 1 start");
+
+        try {
+            File sdcard = Environment.getExternalStorageDirectory();
+            //Log.i(logtag, "readRaw 2 sdcard="+sdcard.exists());
+            File file = new File(sdcard, "/Berits_apper/"+"BluetoothConnect.txt");
+            //Log.i(logtag, "readRaw 3 file="+file.exists());
+            InputStream is = new FileInputStream(file);
+
+            InputStreamReader isr = new InputStreamReader(is);
+            BufferedReader br = new BufferedReader(isr, 8192);    // 2nd arg is buffer size
+
+            try {
+                String test;
+                String allText="";
+                while (true){
+                    test = br.readLine();
+                    if(test == null) break;
+                    allText=allText+"\n"+"    "+test;
+                    //tv.setText("\n"+"    "+test);
+                    tv.setText(allText);
+                }
+                isr.close();
+                is.close();
+                br.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void verifyStoragePermissions(Activity activity) {
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
+        }
     }
 
 }
