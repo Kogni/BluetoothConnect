@@ -55,7 +55,6 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
     ArrayAdapter<String> mArrayAdapter;
 
     private BeaconManager beaconManager;
-    TextView rangeElement;
     org.altbeacon.beacon.Region region;
 
     //--permissions & requests
@@ -109,6 +108,8 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         deviceListe = new HashMap<String, Object_Device>();
         loggListe = new HashMap<Date, String>();
 
+        class_Control_Main.readRaw();
+
         BroadcastReceiver mReceiver = new BroadcastReceiver() {
             public void onReceive(Context context, Intent intent) {
 
@@ -118,7 +119,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
                 Date currentTime = Calendar.getInstance().getTime();
                 String tidspunkt = (currentTime.getYear()+1900)+ "." + (currentTime.getMonth()+1)+"."+currentTime.getDay()+" "+currentTime.getHours()+":"+currentTime.getMinutes()+":"+currentTime.getSeconds();
                 String eventTemp = tidspunkt+": "+device.getName()+" ("+device.getClass().getSimpleName()+", "+device.getType()+", "+device.getBluetoothClass()+", "+device.getBluetoothClass().getDeviceClass()+", "+device.getBluetoothClass().getMajorDeviceClass()+", "+device+"), "+device.getBondState()+", "+action;
-                Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. event som loggføres: "+eventTemp);
+                //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. event som loggføres: "+eventTemp);
 
                 //Finding devices
                 Object_Device lagretDevice = deviceListe.get(device.toString());
@@ -132,7 +133,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
                     long diffInMillies = Math.abs(currentTime.getTime() - lagretDevice.getLastSeen().getTime());
                     //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice.getLastSeen()="+lagretDevice.getLastSeen()+" diffInMillies="+diffInMillies);
                     if ( diffInMillies >= 1000 ){
-                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Godkjent, fortsetter");
+                        //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Godkjent, fortsetter");
                     } else { //spam
                         //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Spam, returnerer");
                         return;
@@ -351,6 +352,27 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         Log.i(logtag, "onBeaconServiceConnect 9, end");//blir logget
     }
 
+    public void leggInnLagretDevice(String linje){
+        //Log.i(logtag, "leggInnLagretDevice linje="+linje);
+
+        String MAC = linje.substring(20);
+        String[] separated = linje.split("\\|");
+        for (String item : separated) {
+            if ( item.contains(":")){
+                MAC = item;
+            }
+        }
+
+        Object_Device lagretDevice = deviceListe.get(MAC);
+        //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice="+lagretDevice);
+        if ( lagretDevice == null){
+            //Object_Device newDevice = new Object_Device(device, currentTime);
+            Object_Device newDevice = new Object_Device(linje);
+            deviceListe.put(MAC,newDevice);
+            //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Ny device, fortsetter");
+        }
+    }
+
     private void logEvent(String event, Date tidspunkt){
         //Log.i(logtag, "logEvent start");
         loggListe.put(tidspunkt, event);
@@ -382,6 +404,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         StringBuilder outputText = new StringBuilder();
 
         for (java.util.Map.Entry<String, Object_Device> stringObject_deviceEntry : deviceListe.entrySet()) {
+            //Log.i(logtag, "setDeviceList device="+((HashMap.Entry) stringObject_deviceEntry).getValue());
             outputText.append("\n").append(((Object_Device) ((HashMap.Entry) stringObject_deviceEntry).getValue()).getSummary_raw());
         }
         textview_log.setText(outputText.toString());
@@ -394,6 +417,6 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         }
 
         textview_log.setText(Html.fromHtml(outputTextSortertHTML.toString()));
-        Log.i(logtag, "setDeviceList outputTextSortertHTML="+outputTextSortertHTML);
+        //Log.i(logtag, "setDeviceList outputTextSortertHTML="+outputTextSortertHTML);
     }
 }

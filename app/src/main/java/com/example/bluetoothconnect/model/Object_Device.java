@@ -1,17 +1,70 @@
 package com.example.bluetoothconnect.model;
 
 import android.bluetooth.BluetoothDevice;
+import android.util.Log;
 
+import java.util.Calendar;
 import java.util.Date;
 
 public class Object_Device {
 
-    BluetoothDevice device;
+    //BluetoothDevice device;
     Date LastSeen;
 
+    public String getName;
+    public int getType;
+    public String getBluetoothClass;
+    public int getDeviceClass;
+    public int getMajorDeviceClass;
+    public String MAC;
+    public int getBondState;
+
     public Object_Device(BluetoothDevice device1, Date currentTime) {
-        device = device1;
+        Log.i(this.toString(), "Object_Device lager device fra BluetoothDevice");
+        //device = device1;
         LastSeen = currentTime;
+        String nullSjekk = device1.getName();
+        getName = device1.getName();
+        getType = device1.getType();
+        getBluetoothClass = device1.getBluetoothClass().toString();
+        getDeviceClass = device1.getBluetoothClass().getDeviceClass();
+        getMajorDeviceClass = device1.getBluetoothClass().getMajorDeviceClass();
+        MAC = device1.getAddress();
+        getBondState = device1.getBondState();
+    }
+
+    public Object_Device(String linje) {
+        //Log.i(this.toString(), "Object_Device lager device fra logg: "+linje);
+        //String nullSjekk = device.getName();
+        LastSeen = Calendar.getInstance().getTime();
+
+        String[] separated = linje.split("\\|");
+        int x = 0;
+        for (String item : separated) {
+            x++;
+            //Log.i(this.toString(), "Object_Device x="+x+" item=" + item);
+            if ( x == 1 ){
+                //tidspunkt
+            } else if ( x == 2 ){
+                getName = item;
+            } else if ( x == 3 ){
+                getType = Integer.parseInt(item);
+            } else if ( x == 4 ){
+                getBluetoothClass = item;
+            } else if ( x == 5 ){
+                getDeviceClass = Integer.parseInt(item);
+            } else if ( x == 6 ){
+                getMajorDeviceClass = Integer.parseInt(item);
+            } else if ( x == 7 ){
+                MAC = item;
+            } else if ( x == 8 ){
+                getBondState = Integer.parseInt(item);
+            }
+            if ( item.contains(":")){
+                MAC = item;
+            }
+        }
+
     }
 
     public void setFound(Date currentTime) {
@@ -23,35 +76,38 @@ public class Object_Device {
     }
 
     public String getSummary_raw() {
-        return device.getName()+"|"+device.getType()+"|"+device.getBluetoothClass()+"|"+device.getBluetoothClass().getDeviceClass()+"|"+device.getBluetoothClass().getMajorDeviceClass()+"|"+device+"|"+device.getBondState();
+        //Log.i(this.toString(), "getSummary_raw device="+device);
+        //Log.i(this.toString(), "getSummary_raw getName="+getName);
+        //return getName+"|"+device.getType()+"|"+device.getBluetoothClass()+"|"+device.getBluetoothClass().getDeviceClass()+"|"+device.getBluetoothClass().getMajorDeviceClass()+"|"+device+"|"+device.getBondState();
+        return getName+"|"+getType+"|"+getBluetoothClass+"|"+getDeviceClass+"|"+getMajorDeviceClass+"|"+MAC+"|"+getBondState;
     }
     public String getSummarySimple() {
 
-        String btDeviceName = device.getName();
+        String btDeviceName = getName;
         if ( btDeviceName==null){
-
+        } else if ( btDeviceName.equals("null")){
         } else {
             btDeviceName = "<b>"+btDeviceName+"</b>";
         }
 
-        String bttypeDescription = device.getType()+"";
+        String bttypeDescription = getType+"";
         /*
             public static final int DEVICE_TYPE_CLASSIC = 1;
             public static final int DEVICE_TYPE_DUAL = 3;
             public static final int DEVICE_TYPE_LE = 2;
             public static final int DEVICE_TYPE_UNKNOWN = 0;
          */
-        if ( device.getType() == 0){
+        if ( getType == 0){
             bttypeDescription = "Unknown";
-        } else if ( device.getType() == 1){
+        } else if ( getType == 1){
             bttypeDescription = "<b>BR/EDR</b>";
-        } else if ( device.getType() == 2){
+        } else if ( getType == 2){
             bttypeDescription = "<b>LE-only</b>";
-        } else if ( device.getType() == 3){
+        } else if ( getType == 3){
             bttypeDescription = "<b>BR/EDR/LE</b>";
         }
 
-        String btclassDescription = device.getBluetoothClass()+"";
+        String btclassDescription = getBluetoothClass+"";
         // CoD hex
         //http://domoticx.com/bluetooth-class-of-device-lijst-cod/
         //43c
@@ -65,33 +121,33 @@ public class Object_Device {
         //200408
         //240414
         //5a020c
-        if ( device.getBluetoothClass().toString().equals("43c")){
+        if ( getBluetoothClass.equals("43c")){
             btclassDescription = "<b>TV</b>";
-        } else if ( device.getBluetoothClass().toString().equals("50c")){
+        } else if ( getBluetoothClass.equals("50c")){
             btclassDescription = "Unknown";
-        } else if ( device.getBluetoothClass().toString().equals("704")){
+        } else if ( getBluetoothClass.equals("704")){
             btclassDescription = "<b>Wearable</b>";
-        } else if ( device.getBluetoothClass().toString().equals("1f00")){
+        } else if ( getBluetoothClass.equals("1f00")){
             btclassDescription = "Unknown, various";
-        } else if ( device.getBluetoothClass().toString().equals("c043c")){
+        } else if ( getBluetoothClass.equals("c043c")){
             btclassDescription = "Unknown";
-        } else if ( device.getBluetoothClass().toString().equals("c243c")){
+        } else if ( getBluetoothClass.equals("c243c")){
             btclassDescription = "Unknown</b>";
-        } else if ( device.getBluetoothClass().toString().equals("8043c")){
+        } else if ( getBluetoothClass.equals("8043c")){
             btclassDescription = "<b>Samsung TV</b>";
-        } else if ( device.getBluetoothClass().toString().equals("60680")){
+        } else if ( getBluetoothClass.equals("60680")){
             btclassDescription = "Unknown";
-        } else if ( device.getBluetoothClass().toString().equals("200408")){
+        } else if ( getBluetoothClass.equals("200408")){
             btclassDescription = "<b>Car device</b>";
-        } else if ( device.getBluetoothClass().toString().equals("240414")){
+        } else if ( getBluetoothClass.equals("240414")){
             btclassDescription = "<b>Speaker</b>";
-        } else if ( device.getBluetoothClass().toString().equals("5a020c")){
+        } else if ( getBluetoothClass.equals("5a020c")){
             btclassDescription = "<b>Cell phone</b>";
-        } else if ( device.getBluetoothClass().toString().equals("360408")){
+        } else if ( getBluetoothClass.equals("360408")){
             btclassDescription = "Unknown";
         }
 
-        String btDeviceClassDescription = device.getBluetoothClass().getDeviceClass()+"";
+        String btDeviceClassDescription = getDeviceClass+"";
         //https://developer.android.com/reference/android/bluetooth/BluetoothClass.Device
         //524
         //1032
@@ -101,60 +157,62 @@ public class Object_Device {
         //1664
         //1794
         //7936
-        if ( device.getBluetoothClass().toString().equals("524")){
+        if ( getDeviceClass==524){
             btDeviceClassDescription = "<b>Smart phone</b>";
-        } else if ( device.getBluetoothClass().toString().equals("1032")){
+        } else if ( getDeviceClass ==1032){
             btDeviceClassDescription = "<b>Handsfree</b>";
-        } else if ( device.getBluetoothClass().toString().equals("1044")){
+        } else if ( getDeviceClass==1044){
             btDeviceClassDescription = "<b>Loudspeaker</b>";
-        } else if ( device.getBluetoothClass().toString().equals("1084")){
+        } else if ( getDeviceClass==1084){
             btDeviceClassDescription = "<b>Video and loudspeaker</b>";
-        } else if ( device.getBluetoothClass().toString().equals("1292")){
+        } else if ( getDeviceClass==1292){
             btDeviceClassDescription = "Unknown";
-        } else if ( device.getBluetoothClass().toString().equals("1664")){
+        } else if ( getDeviceClass==1664){
             btDeviceClassDescription = "Unknown";
-        } else if ( device.getBluetoothClass().toString().equals("1794")){
+        } else if ( getDeviceClass==1794){
             btDeviceClassDescription = "Unknown";
-        } else if ( device.getBluetoothClass().toString().equals("7936")){
+        } else if ( getDeviceClass==7936){
             btDeviceClassDescription = "Uncategorized";
         } else {
             btDeviceClassDescription = "Unknown";
         }
         //Log.i(this.toString(), "getSummarySimple getDeviceClass="+device.getBluetoothClass().getDeviceClass()+" btDeviceClassDescription="+btDeviceClassDescription);
 
-        String btMajorDeviceClassDescription = device.getBluetoothClass().getMajorDeviceClass()+"";
+        String btMajorDeviceClassDescription = getMajorDeviceClass+"";
         //512
         //1024
         //1280
         //1536
         //1792
         //7936
-        if ( device.getBluetoothClass().getMajorDeviceClass()==512){
+        if ( getMajorDeviceClass==256){
+            btMajorDeviceClassDescription = "<b>Computer</b>";
+        } else if ( getMajorDeviceClass==512){
             btMajorDeviceClassDescription = "<b>Phone</b>";
-        } else if ( device.getBluetoothClass().getMajorDeviceClass()==1024){
+        } else if ( getMajorDeviceClass==1024){
             btMajorDeviceClassDescription = "<b>Audio video</b>";
-        } else if ( device.getBluetoothClass().getMajorDeviceClass()==1280){
+        } else if ( getMajorDeviceClass==1280){
             btMajorDeviceClassDescription = "<b>Peripheral</b>";
-        } else if ( device.getBluetoothClass().getMajorDeviceClass()==1536){
+        } else if ( getMajorDeviceClass==1536){
             btMajorDeviceClassDescription = "<b>Imaging</b>";
-        } else if ( device.getBluetoothClass().getMajorDeviceClass()==1792){
+        } else if ( getMajorDeviceClass==1792){
             btMajorDeviceClassDescription = "<b>Wearable</b>";
-        } else if ( device.getBluetoothClass().getMajorDeviceClass()==7936){
+        } else if ( getMajorDeviceClass==7936){
             btMajorDeviceClassDescription = "Uncategorized";
         }
         //Log.i(this.toString(), "getSummarySimple getMajorDeviceClass="+device.getBluetoothClass().getMajorDeviceClass()+" btMajorDeviceClassDescription="+btMajorDeviceClassDescription);
 
-        String btBondDescription = device.getBondState()+"";
+        String btBondDescription = getBondState+"";
         //10
         //12
-        if ( device.getBondState()==10){
+        if ( getBondState==10){
             btBondDescription = "No bond";
-        } else if ( device.getBondState()==11){
+        } else if ( getBondState==11){
             btBondDescription = "Bonding";
-        } else if ( device.getBondState()==12){
+        } else if ( getBondState==12){
             btBondDescription = "<b>Bonded</b>";
         }
 
-        return btDeviceName+" ( Bluetooth standard: " +bttypeDescription+", Major device class: "+btMajorDeviceClassDescription+", device class: "+btDeviceClassDescription+", class of device: "+btclassDescription+", MAC "+device+"), Bond state: "+btBondDescription;
+        return btDeviceName+" ( Bluetooth standard: " +bttypeDescription+", Major device class: "+btMajorDeviceClassDescription+", device class: "+btDeviceClassDescription+", class of device: "+btclassDescription+", MAC "+MAC+"), Bond state: "+btBondDescription;
     }
 }
