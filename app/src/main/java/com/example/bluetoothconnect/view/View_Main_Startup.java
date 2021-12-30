@@ -1,22 +1,22 @@
 package com.example.bluetoothconnect.view;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.graphics.Region;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
+import android.provider.Settings;
 import android.util.Log;
-import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.TextView;
@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat;
 
 import com.example.bluetoothconnect.R;
 import com.example.bluetoothconnect.control.Control_Main;
+import com.google.firebase.firestore.util.Util;
 
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconConsumer;
@@ -36,17 +37,10 @@ import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.Identifier;
 import org.altbeacon.beacon.MonitorNotifier;
 import org.altbeacon.beacon.RangeNotifier;
+import org.altbeacon.beacon.Region;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
@@ -63,79 +57,105 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
     TextView rangeElement;
     org.altbeacon.beacon.Region region;
 
-    private static final int REQUEST_ENABLE_BT = 0;
-    private static final int REQUEST_DISCOVERABLE_BT = 0;
-
-    private static final int REQUEST_EXTERNAL_STORAGE = 1;
-    private static String[] PERMISSIONS_STORAGE = {
+    //--permissions & requests
+    //request codes
+    private static final int RC_ENABLE_BT = 0;
+    private static final int RC_DISCOVERABLE_BT = 0;
+    private static final int RC_EXTERNAL_STORAGE = 1;
+    public static final int RC_BLUETOOTH = 1;
+    //permissions to request
+    private static final String[] PERMISSIONS_bluetooth = {
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.BLUETOOTH_ADMIN,
+            Manifest.permission.BLUETOOTH_ADVERTISE,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_PRIVILEGED,
+            Manifest.permission.BLUETOOTH_SCAN,
+    };
+    private static final String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
-    public static final int REQUEST_WRITE_STORAGE = 112;
-    private TextView tv;
+    private static final String[] PERMISSIONS_GPS = {
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+    };
 
+    private TextView textview_log;
+
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(logtag, "onCreate, start");
 
         setContentView(R.layout.activity_main);
 
         class_Control_Main = new Control_Main(this);
 
+        verifyPermissions(this);
+
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-        this.registerReceiver(mReceiver, filter);
+        filter.addAction(BluetoothDevice.ACTION_FOUND);
+
+        BroadcastReceiver mReceiver = new BroadcastReceiver() {
+            public void onReceive(Context context, Intent intent) {
+
+                String action = intent.getAction();
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+
+                Date currentTime = Calendar.getInstance().getTime();
+                String tidspunkt = (currentTime.getYear()+1900)+ "." + (currentTime.getMonth()+1)+"."+currentTime.getDay()+" "+currentTime.getHours()+":"+currentTime.getMinutes()+":"+currentTime.getSeconds();
+                String event = tidspunkt+": "+device.getName()+" ("+device.getClass().getSimpleName()+", "+device.getType()+", "+device.getBluetoothClass()+", "+device.getBluetoothClass().getDeviceClass()+", "+device.getBluetoothClass().getMajorDeviceClass()+", "+device+"), "+device.getBondState()+", "+action;
+                textview_log.setText(event);
+                class_Control_Main.writeToSDFile(event);
+                Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. event som loggføres: "+event);
+
+                //Finding devices
+                if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                    Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. BluetoothDevice.ACTION_FOUND");
+                } else {
+                    Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. --->"+action);
+                    if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_ACL_CONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
+                    } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_DISCOVERY_FINISHED");
+                    } else if (BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
+                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_ACL_DISCONNECT_REQUESTED");
+                    } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_ACL_DISCONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
+                    } else {
+                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. else");
+                    }
+                }
+
+            }
+        };
+        registerReceiver(mReceiver, filter); //gjør at events som matcher filtere blir mottatt av receiver
 
         final TextView out=(TextView)findViewById(R.id.out);
         final Button button_turnon = (Button) findViewById(R.id.button_turnon);
         final Button button_discover = (Button) findViewById(R.id.button_discover);
-        final Button button_turnoff = (Button) findViewById(R.id.button_turnoff);
+
         if (mBluetoothAdapter == null) {
             out.append("device not supported");
             Log.i(logtag, "onCreate, device not supported");
         } else {
             Log.i(logtag, "onCreate, Egen device' navn: "+mBluetoothAdapter.getName());
-            Log.i(logtag, "onCreate, mBluetoothAdapter.getProfileConnectionState(BluetoothHeadset.HEADSET)="+mBluetoothAdapter.getProfileConnectionState(BluetoothHeadset.HEADSET));
-            Log.i(logtag, "onCreate, BluetoothHeadset.STATE_CONNECTED="+BluetoothHeadset.STATE_CONNECTED);
         }
-        button_turnon.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Log.i(logtag, "onCreate button_turnon.onClick");
-                if (!mBluetoothAdapter.isEnabled()) {
-                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                    startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-                }
-            }
-        });
-        button_discover.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View arg0) {
-                Log.i(logtag, "onCreate button_discover.onClick");
-                if (!mBluetoothAdapter.isDiscovering()) {
-                    //out.append("MAKING YOUR DEVICE DISCOVERABLE");
-                    Toast.makeText(getApplicationContext(), "MAKING YOUR DEVICE DISCOVERABLE",
-                            Toast.LENGTH_LONG);
 
-                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-                    startActivityForResult(enableBtIntent, REQUEST_DISCOVERABLE_BT);
-
-                }
-            }
-        });
-        button_turnoff.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View arg0) {
-                Log.i(logtag, "onCreate button_turnoff.onClick");
-                mBluetoothAdapter.disable();
-                //out.append("TURN_OFF BLUETOOTH");
-                Toast.makeText(getApplicationContext(), "TURNING_OFF BLUETOOTH", Toast.LENGTH_LONG);
-
+        button_discover.setOnClickListener(arg0 -> {
+            assert mBluetoothAdapter != null;
+            if (!mBluetoothAdapter.isDiscovering()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+                startActivityForResult(enableBtIntent, RC_DISCOVERABLE_BT);
+                mBluetoothAdapter.startDiscovery();
             }
         });
 
+        assert mBluetoothAdapter != null;
         mBluetoothAdapter.startDiscovery();
         String[] values = new String[] { "Android List View",
                 "Adapter implementation",
@@ -146,335 +166,156 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
                 "List View Array Adapter",
                 "Android Example List View"
         };
-        mArrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, android.R.id.text1, values);
+        mArrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, android.R.id.text1, values);
 
-        BroadcastReceiver mReceiver = new BroadcastReceiver() {
-            public void onReceive(Context context, Intent intent) {
-                Log.i(logtag, "onCreate BroadcastReceiver.onReceive");
-            }
-        };
-
-        filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mReceiver, filter);
 
         //beacon stuff
         beaconManager = BeaconManager.getInstanceForApplication(this);
+
         region = new org.altbeacon.beacon.Region("myBeacons", Identifier.parse("73676723-7400-0000-ffff-0000ffff0005"), null, null);
         beaconManager.getBeaconParsers().add(new BeaconParser().
                 setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
-        //onScanStart(R.layout.activity_main);
-        //rangeElement = (TextView) findViewById(R.id.range);
-        beaconManager.bind(this);
-        try {
-            Log.i(logtag, "onCreate, beaconManager.stopMonitoringBeaconsInRegion try 1");
-            beaconManager.stopMonitoringBeaconsInRegion(region);
-        } catch (RemoteException e) {
-            e.printStackTrace();
-            Log.i(logtag, "onCreate beaconManager.stopMonitoringBeaconsInRegion failed "+e.getCause());
-            Log.i(logtag, "onCreate beaconManager.stopMonitoringBeaconsInRegion failed "+e.toString());
-            Log.i(logtag, "onCreate beaconManager.stopMonitoringBeaconsInRegion failed "+e.getStackTrace());
-        }
-        try {
-            Log.i(logtag, "onCreate, beaconManager.stopMonitoringBeaconsInRegion try 2");
-            beaconManager.startMonitoringBeaconsInRegion(region);
-        } catch (RemoteException e) {
-            e.printStackTrace();
-            Log.i(logtag, "onCreate beaconManager.startMonitoringBeaconsInRegion failed "+e.getCause());
-            Log.i(logtag, "onCreate beaconManager.startMonitoringBeaconsInRegion failed "+e.toString());
-            Log.i(logtag, "onCreate beaconManager.startMonitoringBeaconsInRegion failed "+e.getStackTrace());
-        }
 
-        Log.i(logtag, "onCreate, ferdig med oppsett");
-        //connectToMAC ("A4:6C:F1:06:30:27");
-        connectToMAC ("C3:AB:45:C9:D8:54"); //fitbit
-
-        tv = (TextView) findViewById(R.id.log);
-        tv.setText("onCreate");
-        verifyStoragePermissions(this);
-        requestPermission(this);
-        checkExternalMedia();
-        //writeToSDFile("test");
-        //readRaw();
-
-        Log.i(logtag, "onCreate, end");
+        textview_log = (TextView) findViewById(R.id.log);
+        textview_log.setText("onCreate");
     }
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            //Log.i(logtag, "BroadcastReceiver.onReceive");
-            String action = intent.getAction();
-            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 
-            Date currentTime = Calendar.getInstance().getTime();
-            String event = (currentTime.getYear()+1900)+"."+(currentTime.getMonth()+1)+"."+currentTime.getDay()+" "+currentTime.getHours()+":"+currentTime.getMinutes()+":"+currentTime.getSeconds()+": "+device.getName()+" ("+device.getType()+", "+device+") "+action;
-            Log.i(logtag, "BroadcastReceiver.onReceive. "+event);
-            writeToSDFile(event);
 
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                Log.i(logtag, "BroadcastReceiver.onReceive ACTION_FOUND");
-                // Get the BluetoothDevice object from the Intent
-                // Add the name and address to an array adapter to show in a ListView
-
-                mArrayAdapter.add(device.getName() + "\n" + device.getAddress());
-                Log.i(logtag, "BroadcastReceiver.onReceive adding "+device.getName() + "\n" + device.getAddress());
-            } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-                Log.i(logtag, "BroadcastReceiver.onReceive ACTION_ACL_CONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
-            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
-                Log.i(logtag, "BroadcastReceiver.onReceive ACTION_DISCOVERY_FINISHED");
-            } else if (BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
-                Log.i(logtag, "BroadcastReceiver.onReceive ACTION_ACL_DISCONNECT_REQUESTED");
-            } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-                Log.i(logtag, "BroadcastReceiver.onReceive ACTION_ACL_DISCONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
-            } else {
-                Log.i(logtag, "BroadcastReceiver.onReceive else");
-            }
-
-            //Finding devices
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                Log.i(logtag, "BroadcastReceiver.onReceive BluetoothDevice.ACTION_FOUND.equals(action)");
-            }
+    public static void verifyPermissions(Activity activity) {
+       int gotAllPermissions = Math.max(
+                Math.max(
+                    ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH)
+                ),
+                ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
+        );
+        if (gotAllPermissions != PackageManager.PERMISSION_GRANTED) {
+            Log.i(logtag, "verifyPermissions 2a mangler permissions");
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_bluetooth,
+                    RC_BLUETOOTH
+            );
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    RC_EXTERNAL_STORAGE
+            );
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_GPS,
+                    0
+            );
         }
-    };
-
-    private void connectToMAC(String address){
-        Log.i(logtag, "connectToMAC address="+address);
-        try {
-            Log.i(logtag, "connectToMAC try 2");
-            BluetoothManager bluetoothManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
-            BluetoothDevice mBluetoothDevice = bluetoothManager.getAdapter() .getRemoteDevice(address);
-            Log.i(logtag, "connectToMAC try 2 completed. Device="+mBluetoothDevice+", "+mBluetoothDevice.getType()+", "+mBluetoothDevice.getName());
-        } catch (Exception e){
-            Log.i(logtag, "connectToMAC try 2 failed "+e.getCause());
-            Log.i(logtag, "connectToMAC try 2 failed "+e.toString());
-            Log.i(logtag, "connectToMAC try 2 failed "+e.getStackTrace());
-        }
-    }
-
-    public void onScanStart(View view) {
-        Log.i(logtag, "onScanStart ");
-        //stopScanButton.setEnabled(true);
-        //scanningButton.setEnabled(false);
-        beaconManager.bind(this);
     }
 
     @Override
-    public void onBeaconServiceConnect() {
-        //Log.i(logtag, "onBeaconServiceConnect 1 start");
-        beaconManager.removeAllRangeNotifiers();
-        Log.i(logtag, "onBeaconServiceConnect 2, før addRangeNotifier");
-        beaconManager.addRangeNotifier(new RangeNotifier() {
-            @Override
-            public void didRangeBeaconsInRegion(Collection<Beacon> beacons, org.altbeacon.beacon.Region region) {
-                Log.i(logtag, "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion");
-                for (Beacon b : beacons) {
-                    //System.out.println(String.format("%s: %f: %d", b.getBluetoothName(), b.getDistance(), b.getRssi()));
-                    Log.i(logtag, "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion "+String.format("%s: %f: %d", b.getBluetoothName(), b.getDistance(), b.getRssi()));
-                }
-                if (beacons.size() > 0) {
-                    Log.i(logtag, "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion. The first beacon I see is about "+beacons.iterator().next().getDistance()+" meters away.");
-                }
-                try {
-                    //Region region1 = new Region("abc123", null, null, null);
-                    //beaconManager.startRangingBeaconsInRegion(region1);
-                } catch (Exception e) {
-                    Toast.makeText(getApplicationContext(), "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion failed", Toast.LENGTH_LONG);
-                    Log.i(logtag, "onBeaconServiceConnect.didRangeBeaconsInRegion failed "+e.getCause());
-                    Log.i(logtag, "onBeaconServiceConnect.didRangeBeaconsInRegion failed "+e.toString());
-                    Log.i(logtag, "onBeaconServiceConnect.didRangeBeaconsInRegion failed "+e.getStackTrace());
-                }
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) { //trigges ved aktivisering av discovery
+        super.onActivityResult(requestCode, resultCode, data);
+        Log.i(logtag, "onActivityResult requestCode="+requestCode+" resultCode="+resultCode+", isdiscovering="+mBluetoothAdapter.isDiscovering());//logges ikke
+        if (requestCode == RC_ENABLE_BT) {
+            if ((resultCode == RESULT_OK) || (resultCode == 120)) {
+                progressToNextCheck();
+
             }
+        }
+    }
 
+    private void progressToNextCheck(){ //trigges ved aktivisering av discovery
+        Log.i(logtag, "progressToNextCheck, scan mode="+mBluetoothAdapter.getScanMode()); //logges ikke
+        Log.i(logtag, "progressToNextCheck. Is discovering: "+mBluetoothAdapter.isDiscovering());
+        if (mBluetoothAdapter.getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            Log.i(logtag, "progressToNextCheck scan mode is SCAN_MODE_CONNECTABLE_DISCOVERABLE, what to do next?");
+        } else {
+            Log.i(logtag, "progressToNextCheck, scan not SCAN_MODE_CONNECTABLE_DISCOVERABLE. Asking for scan mode");
+            Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0);
+            startActivityForResult(discoverableIntent, RC_DISCOVERABLE_BT);
+        }
+    }
+
+    private void connectToMAC(String address){
+        //Log.i(logtag, "connectToMAC address="+address);
+        try {
+            //Log.i(logtag, "connectToMAC try 2");
+            BluetoothManager bluetoothManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+            bluetoothManager.getAdapter().getRemoteDevice(address);
+            //Log.i(logtag, "connectToMAC try 2 completed. Device="+mBluetoothDevice+", "+mBluetoothDevice.getType()+", "+mBluetoothDevice.getName());
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onBeaconServiceConnect() { //trigges
+        Log.i(logtag, "onBeaconServiceConnect 1 start");//blir logget
+        beaconManager.removeAllRangeNotifiers();
+        Log.i(logtag, "onBeaconServiceConnect 2, før addRangeNotifier");//blir logget
+
+        beaconManager.addRangeNotifier((beacons, region) -> { //ser ikke ut til å kjøre
+            Log.i(logtag, "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion"); //logges ikke
+            for (Beacon b : beacons) {
+                //System.out.println(String.format("%s: %f: %d", b.getBluetoothName(), b.getDistance(), b.getRssi()));
+                Log.i(logtag, "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion "+String.format("%s: %f: %d", b.getBluetoothName(), b.getDistance(), b.getRssi()));
+            }
+            if (beacons.size() > 0) {
+                Log.i(logtag, "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion. The first beacon I see is about "+beacons.iterator().next().getDistance()+" meters away.");
+            }
+            try {
+            } catch (Exception e) {
+                Toast.makeText(getApplicationContext(), "onBeaconServiceConnect.addRangeNotifier.didRangeBeaconsInRegion failed", Toast.LENGTH_LONG).show();
+                e.printStackTrace();
+            }
         });
-        //Log.i(logtag, "onBeaconServiceConnect 3, etter addRangeNotifier, før setMonitorNotifier");
-        beaconManager.setMonitorNotifier(new MonitorNotifier() {
 
+
+        Log.i(logtag, "onBeaconServiceConnect 3, etter addRangeNotifier, før setMonitorNotifier");//blir logget
+        beaconManager.setMonitorNotifier(new MonitorNotifier() { //ser ikke ut til å kjøre
             @Override
             public void didEnterRegion(org.altbeacon.beacon.Region region) {
-                Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didEnterRegion");
+                Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didEnterRegion"); //logges ikke
                 try {
                     Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didEnterRegion. Did Enter Region");
                     beaconManager.startRangingBeaconsInRegion(region);
                 } catch (RemoteException e) {
                     e.printStackTrace();
-                    Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didEnterRegion failed "+e.getCause());
-                    Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didEnterRegion failed "+e.toString());
-                    Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didEnterRegion failed "+e.getStackTrace());
-                }
+               }
             }
 
             @Override
             public void didExitRegion(org.altbeacon.beacon.Region region) {
-                //Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion");
+                Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion"); //logges ikke
                 try {
                     Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion. Did Exit Region");
                     beaconManager.stopRangingBeaconsInRegion(region);
                 } catch (RemoteException e) {
                     e.printStackTrace();
-                    Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion failed "+e.getCause());
-                    Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion failed "+e.toString());
-                    Log.i(logtag, "onBeaconServiceConnect.setMonitorNotifier.didExitRegion failed "+e.getStackTrace());
-                }
+              }
             }
 
             @Override
             public void didDetermineStateForRegion(int state, org.altbeacon.beacon.Region region) {
-                Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didDetermineStateForRegion");
+                Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didDetermineStateForRegion"); //logges ikke
             }
 
         });
-        //Log.i(logtag, "onBeaconServiceConnect 4, etter setMonitorNotifier, før setRangeNotifier");
-        beaconManager.setRangeNotifier(new RangeNotifier() {
-            @Override
-            //Log out welche beacons in der Nähe sind
-            public void didRangeBeaconsInRegion(Collection<Beacon> beacons, org.altbeacon.beacon.Region region) {
-                Log.d(logtag, "onBeaconServiceConnect.setRangeNotifier.didRangeBeaconsInRegion");
-                for(final Beacon oneBeacon : beacons) {
-                    Log.d(logtag, "distance: " + oneBeacon.getDistance() + "id: " + oneBeacon.getId1() + "/" + oneBeacon.getId2() + "/" + oneBeacon.getId3());
 
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Log.d(logtag, "onBeaconServiceConnect.setRangeNotifier.didRangeBeaconsInRegion.run");
-                            // Change the text label in the UI
-                            rangeElement.setText(String.valueOf(oneBeacon.getDistance()));
-                        }
-                    });
-                }
-            }
-        });
-        //Log.i(logtag, "onBeaconServiceConnect 5, etter setRangeNotifier, før startMonitoringBeaconsInRegion");
+        Log.i(logtag, "onBeaconServiceConnect 6, etter setRangeNotifier");//blir logget
 
         try {
-            Log.d(logtag, "onBeaconServiceConnect try start");
+            Log.d(logtag, "onBeaconServiceConnect 7a try start"); //logges IKKE
             beaconManager.startMonitoringBeaconsInRegion(region);
-            Log.d(logtag, "onBeaconServiceConnect try successful");
-        } catch (RemoteException e) {
-            Log.i(logtag, "onBeaconServiceConnect failed "+e.getCause());
-            Log.i(logtag, "onBeaconServiceConnect failed "+e.toString());
-            Log.i(logtag, "onBeaconServiceConnect failed "+e.getStackTrace());
+            Log.d(logtag, "onBeaconServiceConnect 7a2 try successful");
+            //Log.i(logtag, "onBeaconServiceConnect 6, etter startMonitoringBeaconsInRegion");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        //Log.i(logtag, "onBeaconServiceConnect 6, etter startMonitoringBeaconsInRegion");
+        Log.i(logtag, "onBeaconServiceConnect 8, før getBeaconParsers");//blir logget
         beaconManager.getBeaconParsers().add(new BeaconParser()
                 .setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
-        //Log.i(logtag, "onBeaconServiceConnect 7, end");
+        Log.i(logtag, "onBeaconServiceConnect 9, end");//blir logget
     }
 
-
-    private void requestPermission(Activity context) {
-        Log.i(logtag, "requestPermission 1 start");
-        boolean hasPermission = (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
-        if (!hasPermission) {
-            Log.i(logtag, "requestPermission 2a mangler permissions");
-            ActivityCompat.requestPermissions(context,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    REQUEST_WRITE_STORAGE);
-        } else {
-            Log.i(logtag, "requestPermission 2b har permissions");
-            String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/new_folder";
-            File storageDir = new File(path);
-            if (!storageDir.exists() && !storageDir.mkdirs()) {
-                Log.i(logtag, "requestPermission 2b2, !storageDir.exists() && !storageDir.mkdirs()");
-            }
-        }
-    }
-
-    private void checkExternalMedia(){
-        Log.i(logtag, "checkExternalMedia 1 start");
-        boolean mExternalStorageAvailable = false;
-        boolean mExternalStorageWriteable = false;
-        String state = Environment.getExternalStorageState();
-
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            mExternalStorageAvailable = mExternalStorageWriteable = true;
-            Log.i(logtag, "checkExternalMedia 2a");
-        } else if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-            mExternalStorageAvailable = true;
-            mExternalStorageWriteable = false;
-            Log.i(logtag, "checkExternalMedia 2b");
-        } else {
-            mExternalStorageAvailable = mExternalStorageWriteable = false;
-            Log.i(logtag, "checkExternalMedia 2c");
-        }
-        tv.setText("\n\nExternal Media: readable=" +mExternalStorageAvailable+" writable="+mExternalStorageWriteable);
-    }
-
-    private void writeToSDFile(String inputSentence){
-        Log.i(logtag, "writeToSDFile 1 start");
-        //Log.i(logtag, "saveInputToFile: 1 "+inputSentence);
-        //setProgressText("save Input To File");
-
-        try {
-            //Log.i(logtag, "saveInputToFile: 3 skal lagres: "+inputSentence);
-            File root = android.os.Environment.getExternalStorageDirectory();
-            //Log.i(logtag, "writeToSDFile 2 root="+root.exists());
-            File dir = new File (root.getAbsolutePath() + "/Berits_apper");
-            //Log.i(logtag, "writeToSDFile 3 dir="+dir.exists());
-            File inputsFile = new File(dir, "BluetoothConnect.txt");
-            //Log.i(logtag, "writeToSDFile 4 inputsFile="+inputsFile.exists());
-            try {
-                dir.mkdirs();
-            } catch (Exception e){
-            }
-
-            FileOutputStream fos = new FileOutputStream (inputsFile.getAbsolutePath(), true); // true will be same as Context.MODE_APPEND
-
-            fos.write(inputSentence.getBytes());
-            fos.write(System.getProperty("line.separator").getBytes());
-            //filnavn = fos.toString();
-            fos.close();
-
-            //readFileToExperience();
-        } catch (Exception e) {
-            Log.i(logtag, "saveInputToFile 4b inputs failed");
-            e.printStackTrace();
-        }
-        //Log.i(logtag, "saveInputToFile: 4");
-    }
-
-    private void readRaw(){
-        Log.i(logtag, "readRaw 1 start");
-
-        try {
-            File sdcard = Environment.getExternalStorageDirectory();
-            //Log.i(logtag, "readRaw 2 sdcard="+sdcard.exists());
-            File file = new File(sdcard, "/Berits_apper/"+"BluetoothConnect.txt");
-            //Log.i(logtag, "readRaw 3 file="+file.exists());
-            InputStream is = new FileInputStream(file);
-
-            InputStreamReader isr = new InputStreamReader(is);
-            BufferedReader br = new BufferedReader(isr, 8192);    // 2nd arg is buffer size
-
-            try {
-                String test;
-                String allText="";
-                while (true){
-                    test = br.readLine();
-                    if(test == null) break;
-                    allText=allText+"\n"+"    "+test;
-                    //tv.setText("\n"+"    "+test);
-                    tv.setText(allText);
-                }
-                isr.close();
-                is.close();
-                br.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void verifyStoragePermissions(Activity activity) {
-        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        if (permission != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    activity,
-                    PERMISSIONS_STORAGE,
-                    REQUEST_EXTERNAL_STORAGE
-            );
-        }
-    }
 
 }

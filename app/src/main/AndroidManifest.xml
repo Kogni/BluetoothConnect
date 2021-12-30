@@ -27,6 +27,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BluetoothConnect"
         android:requestLegacyExternalStorage="true"
+        android:foregroundServiceType="location"
+        android:exported="true"
         >
         <activity
             android:name=".view.View_Main_Startup"
