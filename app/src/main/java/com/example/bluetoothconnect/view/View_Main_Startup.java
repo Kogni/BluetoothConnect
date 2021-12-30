@@ -11,11 +11,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.location.LocationManager;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.RemoteException;
-import android.provider.Settings;
+import android.text.Html;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -24,11 +23,10 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import com.example.bluetoothconnect.R;
 import com.example.bluetoothconnect.control.Control_Main;
-import com.google.firebase.firestore.util.Util;
+import com.example.bluetoothconnect.model.Object_Device;
 
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconConsumer;
@@ -36,14 +34,17 @@ import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.Identifier;
 import org.altbeacon.beacon.MonitorNotifier;
-import org.altbeacon.beacon.RangeNotifier;
-import org.altbeacon.beacon.Region;
 
-import java.io.File;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 public class View_Main_Startup extends AppCompatActivity  implements BeaconConsumer {
 
@@ -81,6 +82,11 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
             Manifest.permission.ACCESS_COARSE_LOCATION
     };
 
+    //devices found
+    boolean showDevices = false;
+    HashMap<Date, String> loggListe;
+    HashMap<String, Object_Device> deviceListe;
+
     private TextView textview_log;
 
     @SuppressLint("SetTextI18n")
@@ -100,6 +106,9 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         filter.addAction(BluetoothDevice.ACTION_FOUND);
 
+        deviceListe = new HashMap<String, Object_Device>();
+        loggListe = new HashMap<Date, String>();
+
         BroadcastReceiver mReceiver = new BroadcastReceiver() {
             public void onReceive(Context context, Intent intent) {
 
@@ -108,14 +117,31 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
 
                 Date currentTime = Calendar.getInstance().getTime();
                 String tidspunkt = (currentTime.getYear()+1900)+ "." + (currentTime.getMonth()+1)+"."+currentTime.getDay()+" "+currentTime.getHours()+":"+currentTime.getMinutes()+":"+currentTime.getSeconds();
-                String event = tidspunkt+": "+device.getName()+" ("+device.getClass().getSimpleName()+", "+device.getType()+", "+device.getBluetoothClass()+", "+device.getBluetoothClass().getDeviceClass()+", "+device.getBluetoothClass().getMajorDeviceClass()+", "+device+"), "+device.getBondState()+", "+action;
-                textview_log.setText(event);
-                class_Control_Main.writeToSDFile(event);
-                Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. event som loggføres: "+event);
+                String eventTemp = tidspunkt+": "+device.getName()+" ("+device.getClass().getSimpleName()+", "+device.getType()+", "+device.getBluetoothClass()+", "+device.getBluetoothClass().getDeviceClass()+", "+device.getBluetoothClass().getMajorDeviceClass()+", "+device+"), "+device.getBondState()+", "+action;
+                Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. event som loggføres: "+eventTemp);
 
                 //Finding devices
+                Object_Device lagretDevice = deviceListe.get(device.toString());
+                //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice="+lagretDevice);
+                if ( lagretDevice == null){
+                    Object_Device newDevice = new Object_Device(device, currentTime);
+                    deviceListe.put(device.toString(),newDevice);
+                    //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Ny device, fortsetter");
+                } else { //sjekk at det ikke spammes eventer om samme ting
+
+                    long diffInMillies = Math.abs(currentTime.getTime() - lagretDevice.getLastSeen().getTime());
+                    //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice.getLastSeen()="+lagretDevice.getLastSeen()+" diffInMillies="+diffInMillies);
+                    if ( diffInMillies >= 1000 ){
+                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Godkjent, fortsetter");
+                    } else { //spam
+                        //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Spam, returnerer");
+                        return;
+                    }
+                }
+                lagretDevice = deviceListe.get(device.toString());
+                lagretDevice.setFound(currentTime);
                 if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                    Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. BluetoothDevice.ACTION_FOUND");
+                    //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. BluetoothDevice.ACTION_FOUND");
                 } else {
                     Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. --->"+action);
                     if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
@@ -130,29 +156,42 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
                         Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. else");
                     }
                 }
+                String event =tidspunkt+"|"+lagretDevice.getSummary_raw()+"|"+action;
 
+                class_Control_Main.writeToSDFile(event);
+                logEvent(event, currentTime);
+                if ( showDevices = true){
+                    setDeviceList("onReceive");
+                } else {
+                    setLogText("onReceive");
+                }
             }
         };
         registerReceiver(mReceiver, filter); //gjør at events som matcher filtere blir mottatt av receiver
 
-        final TextView out=(TextView)findViewById(R.id.out);
-        final Button button_turnon = (Button) findViewById(R.id.button_turnon);
         final Button button_discover = (Button) findViewById(R.id.button_discover);
-
-        if (mBluetoothAdapter == null) {
-            out.append("device not supported");
-            Log.i(logtag, "onCreate, device not supported");
-        } else {
-            Log.i(logtag, "onCreate, Egen device' navn: "+mBluetoothAdapter.getName());
-        }
+        final Button button_logging = (Button) findViewById(R.id.button_displayLogg);
+        final Button button_devices = (Button) findViewById(R.id.button_displayDevices);
 
         button_discover.setOnClickListener(arg0 -> {
+            Log.i(logtag, "onCreate, button_discover");
             assert mBluetoothAdapter != null;
             if (!mBluetoothAdapter.isDiscovering()) {
                 Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
                 startActivityForResult(enableBtIntent, RC_DISCOVERABLE_BT);
                 mBluetoothAdapter.startDiscovery();
             }
+        });
+        button_logging.setOnClickListener(arg0 -> {
+            Log.i(logtag, "onCreate, button_logging");
+            showDevices = false;
+            setLogText("button_logging");
+
+        });
+        button_devices.setOnClickListener(arg0 -> {
+            Log.i(logtag, "onCreate, button_devices");
+            showDevices = true;
+            setDeviceList("button_devices");
         });
 
         assert mBluetoothAdapter != null;
@@ -168,7 +207,6 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         };
         mArrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, android.R.id.text1, values);
 
-
         //beacon stuff
         beaconManager = BeaconManager.getInstanceForApplication(this);
 
@@ -177,10 +215,9 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
                 setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
 
         textview_log = (TextView) findViewById(R.id.log);
+        textview_log.setMovementMethod(new ScrollingMovementMethod());
         textview_log.setText("onCreate");
     }
-
-
 
     public static void verifyPermissions(Activity activity) {
        int gotAllPermissions = Math.max(
@@ -238,11 +275,9 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
     private void connectToMAC(String address){
         //Log.i(logtag, "connectToMAC address="+address);
         try {
-            //Log.i(logtag, "connectToMAC try 2");
             BluetoothManager bluetoothManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
             bluetoothManager.getAdapter().getRemoteDevice(address);
-            //Log.i(logtag, "connectToMAC try 2 completed. Device="+mBluetoothDevice+", "+mBluetoothDevice.getType()+", "+mBluetoothDevice.getName());
-        } catch (Exception e){
+       } catch (Exception e){
             e.printStackTrace();
         }
     }
@@ -298,7 +333,6 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
             public void didDetermineStateForRegion(int state, org.altbeacon.beacon.Region region) {
                 Log.d(logtag, "onBeaconServiceConnect.setMonitorNotifier.didDetermineStateForRegion"); //logges ikke
             }
-
         });
 
         Log.i(logtag, "onBeaconServiceConnect 6, etter setRangeNotifier");//blir logget
@@ -317,5 +351,49 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         Log.i(logtag, "onBeaconServiceConnect 9, end");//blir logget
     }
 
+    private void logEvent(String event, Date tidspunkt){
+        //Log.i(logtag, "logEvent start");
+        loggListe.put(tidspunkt, event);
 
+        loggListe.entrySet();
+    }
+
+    private void setLogText(String source){
+        Log.i(logtag, "setLogText source="+source+" showDevices="+showDevices);
+        StringBuilder outputText = new StringBuilder();
+
+        for (java.util.Map.Entry<Date, String> dateStringEntry : loggListe.entrySet()) {
+            outputText.append("\n").append(((HashMap.Entry) dateStringEntry).getValue());
+        }
+
+        StringBuilder outputTextSortert = new StringBuilder();
+        SortedSet<Date> keys = new TreeSet<>(loggListe.keySet());
+        for (Date key : keys) {
+            loggListe.get(key);
+            outputTextSortert.append("\n").append(loggListe.get(key));
+        }
+
+        textview_log.setText(outputTextSortert.toString());
+        //Log.i(logtag, "setLogText outputText="+outputText);
+    }
+
+    private void setDeviceList(String source){
+        //Log.i(logtag, "setDeviceList source="+source+" showDevices="+showDevices);
+        StringBuilder outputText = new StringBuilder();
+
+        for (java.util.Map.Entry<String, Object_Device> stringObject_deviceEntry : deviceListe.entrySet()) {
+            outputText.append("\n").append(((Object_Device) ((HashMap.Entry) stringObject_deviceEntry).getValue()).getSummary_raw());
+        }
+        textview_log.setText(outputText.toString());
+
+        List<Object_Device> sorterteDevicer = new ArrayList<>(deviceListe.values());
+        sorterteDevicer.sort(Comparator.comparing(Object_Device::getSummary_raw));
+        StringBuilder outputTextSortertHTML = new StringBuilder();
+        for (Object_Device p : sorterteDevicer) {
+            outputTextSortertHTML.append("<br><br>").append(p.getSummarySimple());
+        }
+
+        textview_log.setText(Html.fromHtml(outputTextSortertHTML.toString()));
+        Log.i(logtag, "setDeviceList outputTextSortertHTML="+outputTextSortertHTML);
+    }
 }

@@ -23,11 +23,8 @@ public class Control_Main {
         try {
             //Log.i(logtag, "saveInputToFile: 3 skal lagres: "+inputSentence);
             File root = android.os.Environment.getExternalStorageDirectory();
-            //Log.i(logtag, "writeToSDFile 2 root="+root.exists());
             File dir = new File (root.getAbsolutePath() + "/Berits_apper");
-            //Log.i(logtag, "writeToSDFile 3 dir="+dir.exists());
             File inputsFile = new File(dir, "BluetoothConnect.txt");
-            //Log.i(logtag, "writeToSDFile 4 inputsFile="+inputsFile.exists());
             try {
                 dir.mkdirs();
             } catch (Exception ignored){
@@ -37,15 +34,12 @@ public class Control_Main {
 
             fos.write(inputSentence.getBytes());
             fos.write(Objects.requireNonNull(System.getProperty("line.separator")).getBytes());
-            //filnavn = fos.toString();
             fos.close();
 
-            //readFileToExperience();
         } catch (Exception e) {
             Log.i(logtag, "saveInputToFile 4b inputs failed");
             e.printStackTrace();
         }
-        //Log.i(logtag, "saveInputToFile: 4");
     }
 
 }

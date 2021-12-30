@@ -16,42 +16,43 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:layout_editor_absoluteX="-83dp">
 
-        <TextView android:text=""
-            android:id="@+id/out"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="20dp"
-            android:hint="Output"
-            >
-        </TextView>
-        <Button
-            android:id="@+id/button_turnon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@+id/out"
-            android:layout_alignParentLeft="true"
-            android:layout_alignParentTop="true"
-            android:layout_marginLeft="30dp"
-            android:layout_marginTop="20dp"
-            android:text="TURN_ON" />
-
         <Button
             android:id="@+id/button_discover"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignLeft="@+id/out"
-            android:layout_below="@+id/out"
+            android:layout_alignLeft="@+id/layOut1"
+            android:layout_below="@+id/layOut1"
             android:layout_marginTop="0dp"
             android:text="Make phone discoverable" />
+
+        <Button
+            android:id="@+id/button_displayLogg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignLeft="@+id/button_discover"
+            android:layout_below="@+id/button_discover"
+            android:layout_marginTop="0dp"
+            android:text="Display logged events" />
+
+        <Button
+            android:id="@+id/button_displayDevices"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignLeft="@+id/button_displayLogg"
+            android:layout_below="@+id/button_displayLogg"
+            android:layout_marginTop="0dp"
+            android:text="Display logged devices" />
 
 
         <TextView
             android:id="@+id/log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/button_discover"
+            android:layout_below="@id/button_displayDevices"
             android:layout_marginLeft="20dp"
-            android:hint="Logg" />
+            android:hint="Logg"
+            android:scrollbars = "vertical"
+            />
 
     </RelativeLayout>
 
