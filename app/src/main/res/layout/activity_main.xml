@@ -22,33 +22,43 @@
             android:layout_height="wrap_content"
             android:layout_alignLeft="@+id/layOut1"
             android:layout_below="@+id/layOut1"
+            android:layout_marginLeft="20dp"
             android:layout_marginTop="0dp"
-            android:text="Make phone discoverable" />
+            android:text="Discover devices" />
 
         <Button
             android:id="@+id/button_displayLogg"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignLeft="@+id/button_discover"
-            android:layout_below="@+id/button_discover"
             android:layout_marginTop="0dp"
-            android:text="Display logged events" />
+            android:layout_marginLeft="180dp"
+            android:text="Event log" />
 
         <Button
             android:id="@+id/button_displayDevices"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignLeft="@+id/button_displayLogg"
-            android:layout_below="@+id/button_displayLogg"
             android:layout_marginTop="0dp"
-            android:text="Display logged devices" />
+            android:layout_marginLeft="120dp"
+            android:text="Device log" />
 
+        <TextView
+            android:id="@+id/telling"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/button_displayDevices"
+            android:layout_marginLeft="20dp"
+            android:hint="Antall funnet"
+            android:scrollbars = "vertical"
+            />
 
         <TextView
             android:id="@+id/log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/button_displayDevices"
+            android:layout_below="@id/telling"
             android:layout_marginLeft="20dp"
             android:hint="Logg"
             android:scrollbars = "vertical"

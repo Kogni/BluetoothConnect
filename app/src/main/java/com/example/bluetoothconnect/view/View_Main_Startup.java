@@ -87,6 +87,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
     HashMap<String, Object_Device> deviceListe;
 
     private TextView textview_log;
+    private TextView textview_teller;
 
     @SuppressLint("SetTextI18n")
     @Override
@@ -112,60 +113,7 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
 
         BroadcastReceiver mReceiver = new BroadcastReceiver() {
             public void onReceive(Context context, Intent intent) {
-
-                String action = intent.getAction();
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-
-                Date currentTime = Calendar.getInstance().getTime();
-                String tidspunkt = (currentTime.getYear()+1900)+ "." + (currentTime.getMonth()+1)+"."+currentTime.getDay()+" "+currentTime.getHours()+":"+currentTime.getMinutes()+":"+currentTime.getSeconds();
-                String eventTemp = tidspunkt+": "+device.getName()+" ("+device.getClass().getSimpleName()+", "+device.getType()+", "+device.getBluetoothClass()+", "+device.getBluetoothClass().getDeviceClass()+", "+device.getBluetoothClass().getMajorDeviceClass()+", "+device+"), "+device.getBondState()+", "+action;
-                //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. event som loggføres: "+eventTemp);
-
-                //Finding devices
-                Object_Device lagretDevice = deviceListe.get(device.toString());
-                //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice="+lagretDevice);
-                if ( lagretDevice == null){
-                    Object_Device newDevice = new Object_Device(device, currentTime);
-                    deviceListe.put(device.toString(),newDevice);
-                    //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Ny device, fortsetter");
-                } else { //sjekk at det ikke spammes eventer om samme ting
-
-                    long diffInMillies = Math.abs(currentTime.getTime() - lagretDevice.getLastSeen().getTime());
-                    //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice.getLastSeen()="+lagretDevice.getLastSeen()+" diffInMillies="+diffInMillies);
-                    if ( diffInMillies >= 1000 ){
-                        //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Godkjent, fortsetter");
-                    } else { //spam
-                        //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Spam, returnerer");
-                        return;
-                    }
-                }
-                lagretDevice = deviceListe.get(device.toString());
-                lagretDevice.setFound(currentTime);
-                if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                    //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. BluetoothDevice.ACTION_FOUND");
-                } else {
-                    Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. --->"+action);
-                    if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_ACL_CONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
-                    } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
-                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_DISCOVERY_FINISHED");
-                    } else if (BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
-                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_ACL_DISCONNECT_REQUESTED");
-                    } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. ACTION_ACL_DISCONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
-                    } else {
-                        Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. else");
-                    }
-                }
-                String event =tidspunkt+"|"+lagretDevice.getSummary_raw()+"|"+action;
-
-                class_Control_Main.writeToSDFile(event);
-                logEvent(event, currentTime);
-                if ( showDevices = true){
-                    setDeviceList("onReceive");
-                } else {
-                    setLogText("onReceive");
-                }
+                discover_onReceive(context, intent);
             }
         };
         registerReceiver(mReceiver, filter); //gjør at events som matcher filtere blir mottatt av receiver
@@ -178,9 +126,12 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
             Log.i(logtag, "onCreate, button_discover");
             assert mBluetoothAdapter != null;
             if (!mBluetoothAdapter.isDiscovering()) {
+                Toast.makeText(getApplicationContext(), "User asked for discovery", Toast.LENGTH_SHORT).show();
                 Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
                 startActivityForResult(enableBtIntent, RC_DISCOVERABLE_BT);
                 mBluetoothAdapter.startDiscovery();
+            } else {
+                Toast.makeText(getApplicationContext(), "Already discovering", Toast.LENGTH_SHORT).show();
             }
         });
         button_logging.setOnClickListener(arg0 -> {
@@ -218,6 +169,11 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         textview_log = (TextView) findViewById(R.id.log);
         textview_log.setMovementMethod(new ScrollingMovementMethod());
         textview_log.setText("onCreate");
+
+        textview_teller = (TextView) findViewById(R.id.telling);
+        textview_teller.setMovementMethod(new ScrollingMovementMethod());
+        textview_teller.setText("onCreate");
+
     }
 
     public static void verifyPermissions(Activity activity) {
@@ -251,9 +207,11 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) { //trigges ved aktivisering av discovery
         super.onActivityResult(requestCode, resultCode, data);
+        Toast.makeText(getApplicationContext(), "Requesting to start device discovery", Toast.LENGTH_SHORT).show();
         Log.i(logtag, "onActivityResult requestCode="+requestCode+" resultCode="+resultCode+", isdiscovering="+mBluetoothAdapter.isDiscovering());//logges ikke
         if (requestCode == RC_ENABLE_BT) {
             if ((resultCode == RESULT_OK) || (resultCode == 120)) {
+                Toast.makeText(getApplicationContext(), "Request accepted by user", Toast.LENGTH_LONG).show();
                 progressToNextCheck();
 
             }
@@ -352,6 +310,70 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         Log.i(logtag, "onBeaconServiceConnect 9, end");//blir logget
     }
 
+    private void discover_onReceive(Context context, Intent intent){
+        //Log.i(logtag, "discover_onReceive");
+        //Log.i(logtag, "discover_onReceive context="+context+" intent="+intent);
+
+        String action = intent.getAction();
+        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+
+        Date currentTime = Calendar.getInstance().getTime();
+        String tidspunkt = (currentTime.getYear()+1900)+ "." + (currentTime.getMonth()+1)+"."+currentTime.getDay()+" "+currentTime.getHours()+":"+currentTime.getMinutes()+":"+currentTime.getSeconds();
+        String eventTemp = tidspunkt+": "+device.getName()+" ("+device.getClass().getSimpleName()+", "+device.getType()+", "+device.getBluetoothClass()+", "+device.getBluetoothClass().getDeviceClass()+", "+device.getBluetoothClass().getMajorDeviceClass()+", "+device+"), "+device.getBondState()+", "+action;
+        //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. event som loggføres: "+eventTemp);
+
+        //Finding devices
+        Object_Device lagretDevice = deviceListe.get(device.toString());
+        //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice="+lagretDevice);
+        if ( lagretDevice == null){
+            Object_Device newDevice = new Object_Device(device, currentTime);
+            deviceListe.put(device.toString(),newDevice);
+            Log.i(logtag, "discover_onReceive newDevice="+newDevice);
+            Log.i(logtag, "discover_onReceive newDevice.getName="+newDevice.getName);
+            if (newDevice.getName != null) {
+                Toast.makeText(getApplicationContext(), "Found new device: " + newDevice.getName + ", " + newDevice.getMAC(), Toast.LENGTH_LONG).show();
+            }
+            Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. Ny device, fortsetter");
+        } else { //sjekk at det ikke spammes eventer om samme ting
+
+            long diffInMillies = Math.abs(currentTime.getTime() - lagretDevice.getLastSeen().getTime());
+            //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. lagretDevice.getLastSeen()="+lagretDevice.getLastSeen()+" diffInMillies="+diffInMillies);
+            if ( diffInMillies >= 1000 ){
+                //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Godkjent, fortsetter");
+            } else { //spam
+                //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. Spam, returnerer");
+                return;
+            }
+        }
+        lagretDevice = deviceListe.get(device.toString());
+        lagretDevice.setFound(currentTime);
+        if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+            //Log.i(logtag, "onCreate.BroadcastReceiver mReceiver-b.onReceive. BluetoothDevice.ACTION_FOUND");
+        } else {
+            Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. --->"+action);
+            if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+                Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_ACL_CONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_DISCOVERY_FINISHED");
+            } else if (BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
+                Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_ACL_DISCONNECT_REQUESTED");
+            } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+                Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_ACL_DISCONNECTED. Device="+device+", "+device.getType()+", "+device.getName());
+            } else {
+                Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. else");
+            }
+        }
+        String event =tidspunkt+"|"+lagretDevice.getSummary_raw()+"|"+action;
+
+        class_Control_Main.writeToSDFile(event);
+        logEvent(event, currentTime);
+        if ( showDevices = true){
+            setDeviceList("onReceive");
+        } else {
+            setLogText("onReceive");
+        }
+    }
+
     public void leggInnLagretDevice(String linje){
         //Log.i(logtag, "leggInnLagretDevice linje="+linje);
 
@@ -412,11 +434,18 @@ public class View_Main_Startup extends AppCompatActivity  implements BeaconConsu
         List<Object_Device> sorterteDevicer = new ArrayList<>(deviceListe.values());
         sorterteDevicer.sort(Comparator.comparing(Object_Device::getSummary_raw));
         StringBuilder outputTextSortertHTML = new StringBuilder();
+        int teller = 0;
         for (Object_Device p : sorterteDevicer) {
-            outputTextSortertHTML.append("<br><br>").append(p.getSummarySimple());
+            //Log.i(logtag, "setDeviceList p.getName="+p.getName+" null? "+(p.getName==null)+" null?="+(p.getName.equals("null")));
+            if ( ( !(p.getName==null)) && !(p.getName.equals("null")) ) {
+                outputTextSortertHTML.append("<br><br>").append(p.getSummarySimple());
+            }
+            teller++;
         }
 
         textview_log.setText(Html.fromHtml(outputTextSortertHTML.toString()));
+        textview_teller.setText(teller+" devices found");
+
         //Log.i(logtag, "setDeviceList outputTextSortertHTML="+outputTextSortertHTML);
     }
 }
