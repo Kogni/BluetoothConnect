@@ -24,7 +24,8 @@
             android:layout_below="@+id/layOut1"
             android:layout_marginLeft="20dp"
             android:layout_marginTop="0dp"
-            android:text="Discover devices" />
+            android:text="Discover devices"
+            tools:ignore="NotSibling" />
 
         <Button
             android:id="@+id/button_displayLogg"
@@ -44,11 +45,20 @@
             android:layout_marginLeft="120dp"
             android:text="Device log" />
 
+        <Button
+            android:id="@+id/button_displayDevices_today"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/button_displayDevices"
+            android:layout_marginTop="0dp"
+            android:layout_marginLeft="20dp"
+            android:text="Todays devices" />
+
         <TextView
             android:id="@+id/telling"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/button_displayDevices"
+            android:layout_below="@id/button_displayDevices_today"
             android:layout_marginLeft="20dp"
             android:hint="Antall funnet"
             android:scrollbars = "vertical"
