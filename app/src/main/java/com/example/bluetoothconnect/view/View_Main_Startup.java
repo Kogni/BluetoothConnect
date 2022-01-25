@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -42,8 +43,10 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -84,12 +87,13 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
     //devices found
     String logMode = "Events";
-    HashMap<String, Object_Device> deviceListe;
+    public HashMap<String, Object_Device> deviceListe;
 
     private TextView textview_log;
     private TextView textview_teller;
 
     int teller_total = 0;
+    int teller_non_null = 0;
     int teller_today = 0;
 
     Timer timer = new Timer();
@@ -97,11 +101,13 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
     String text_Off = "Paused discovery";
     String text_On = "Discovering...";
+    boolean awaitingLogUpdate = false;
 
     @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        //Log.i(logtag, "onCreate");
 
         setContentView(R.layout.activity_main);
 
@@ -117,7 +123,8 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
         deviceListe = new HashMap<>();
 
-        class_Control_Main.readRaw();
+        //class_Control_Main.readRawEvents();
+        class_Control_Main.readRawDevices();
 
         BroadcastReceiver mReceiver = new BroadcastReceiver() {
             public void onReceive(Context context, Intent intent) {
@@ -131,21 +138,21 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         final Button button_devices = findViewById(R.id.button_displayDevices);
         final Button button_devices_today = findViewById(R.id.button_displayDevices_today);
 
-        Button b = (Button)findViewById(R.id.button_discover);
+        Button b = (Button) findViewById(R.id.button_discover);
         b.setText(text_Off);
         b.setOnClickListener(v -> {
             Log.i(logtag, "onClick (timer)");
-            Button b1 = (Button)v;
-            if(b1.getText().equals(text_On)){
+            Button b1 = (Button) v;
+            if (b1.getText().equals(text_On)) {
                 timer.cancel();
                 timer.purge();
                 selfRunningHandler.removeCallbacks(run);
                 b1.setText(text_Off);
-            }else{
+            } else {
                 starttime = System.currentTimeMillis();
                 timer = new Timer();
-                timer.schedule(new RestartDiscovery(), 0,60000);
-                timer.schedule(new secondTask(),  0,500);
+                timer.schedule(new RestartDiscovery(), 0, 60000);
+                timer.schedule(new secondTask(), 0, 500);
                 selfRunningHandler.postDelayed(run, 0);
                 b1.setText(text_On);
             }
@@ -154,23 +161,26 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         button_logging.setOnClickListener(arg0 -> {
             //Log.i(logtag, "onCreate, button_logging");
             logMode = "Events";
-            setLogText("button_logging");
+            //setLogText("button_logging");
+            awaitingLogUpdate = true;
 
         });
         button_devices.setOnClickListener(arg0 -> {
             //Log.i(logtag, "onCreate, button_devices");
             logMode = "Devices";
-            setDeviceList();
+            setDeviceList("button_devices", "-");
+            awaitingLogUpdate = true;
         });
         button_devices_today.setOnClickListener(arg0 -> {
             //Log.i(logtag, "onCreate, button_devices_today");
             logMode = "Devices today";
-            setDeviceList();
+            setDeviceList("button_devices_today", "-");
+            awaitingLogUpdate = true;
         });
 
         assert mBluetoothAdapter != null;
         mBluetoothAdapter.startDiscovery();
-        Log.i(logtag, "onCreate 2 mBluetoothAdapter.isDiscovering()="+mBluetoothAdapter.isDiscovering());
+        Log.i(logtag, "onCreate 2 mBluetoothAdapter.isDiscovering()=" + mBluetoothAdapter.isDiscovering());
         String[] values = new String[]{"Android List View",
                 "Adapter implementation",
                 "Simple List View In Android",
@@ -199,15 +209,10 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
         setDeviceCount();
 
-        //text = (TextView)findViewById(R.id.text);
-        //text2 = (TextView)findViewById(R.id.text2);
-        //text3 = (TextView)findViewById(R.id.text3);
-
-
     }
 
     public static void verifyPermissions(Activity activity) {
-        Log.i(logtag, "verifyPermissions");
+        //Log.i(logtag, "verifyPermissions");
         int gotAllPermissions = Math.max(
                 Math.max(
                         ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE),
@@ -303,7 +308,6 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
     private void discover_onReceive(Intent intent) {
         //Log.i(logtag, "discover_onReceive");
 
-        String action = intent.getAction();
         BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 
         LocalDateTime.now();
@@ -326,7 +330,19 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         nydato.setMinute(zdt2.getMinute());
         nydato.setSecond(zdt2.getSecond());
         nydato.setMillisecond(Instant.now().get(ChronoField.MILLI_OF_SECOND));
-        String tidspunkt9 = nydato.getYear() + "." + nydato.getMonth() + "." + nydato.getDayOfMonth() + " " + nydato.getHour() + ":" + nydato.getMinute() + ":" + nydato.getSecond() + "." + nydato.getMillisecond();
+        //String month_s = String.valueOf(nydato.getMonth());
+        //String day_s = String.valueOf(nydato.getDayOfMonth());
+        //String hour_s = String.valueOf(nydato.getHour());
+        //String minute_s = String.valueOf(nydato.getMinute());
+        //String second_s = String.valueOf(nydato.getSecond());
+        String millisecond_s = String.valueOf(nydato.getMillisecond());
+        //if (month_s.length() < 2) month_s = "0" + month_s;
+        //if (day_s.length() < 2) day_s = "0" + day_s;
+        //if (hour_s.length() < 2) hour_s = "0" + hour_s;
+        //if (minute_s.length() < 2) minute_s = "0" + minute_s;
+        //if (second_s.length() < 2) second_s = "0" + second_s;
+        while (millisecond_s.length() < 4) millisecond_s = "0" + millisecond_s;
+        //String tidspunkt9 = nydato.getYear() + "." + month_s + "." + day_s + " " + hour_s + ":" + minute_s + ":" + second_s + "." + millisecond_s;
         //Log.i(logtag, "discover_onReceive nydato, tekst=" + tidspunkt9);
 
         Object_Device lagretDevice = deviceListe.get(device.toString());
@@ -334,10 +350,13 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
             Object_Device newDevice = new Object_Device(device, nydato);
             deviceListe.put(device.toString(), newDevice);
 
-            if (newDevice.getName != null) {
-                Toast.makeText(getApplicationContext(), "Found new device: " + newDevice.getName + ", " + newDevice.getMAC(), Toast.LENGTH_LONG).show();
+            if (newDevice.isAnonymous() == false) {
+                Toast.makeText(getApplicationContext(), "Found new device: " + newDevice.getName() + ", " + newDevice.getMAC(), Toast.LENGTH_LONG).show();
             }
-            setDeviceCount();
+            if (newDevice.getMAC() != null) {
+                setDeviceCount();
+                lagretDevice = newDevice;
+            }
         } else { //sjekk at det ikke spammes eventer om samme ting
 
             long diffInMillies = lagretDevice.getSecondsPast(nydato);
@@ -345,44 +364,40 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
                 //Log.i(logtag, "discover_onReceive returnerer pga for liten forskjell i millisekunder=" + diffInMillies);
                 return;
             }
+            //connectToMAC(lagretDevice.getMAC());
         }
 
-        lagretDevice = deviceListe.get(device.toString());
+        if (!(device.getName() == null)) {
+            lagretDevice = deviceListe.get(device.toString());
+        }
 
         if (lagretDevice != null) {
             lagretDevice.setFound(nydato);
             //Log.i(logtag, "discover_onReceive lagretDevice.getLastSeen=" + lagretDevice.getLastSeen());
         }
-        /*if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-        } else {
-            //Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. --->" + action);
-            if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-                //Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_ACL_CONNECTED. Device=" + device + ", " + device.getType() + ", " + device.getName());
-            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
-                Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_DISCOVERY_FINISHED");
-            } else if (BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
-                //Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_ACL_DISCONNECT_REQUESTED");
-            } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-                //Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. ACTION_ACL_DISCONNECTED. Device=" + device + ", " + device.getType() + ", " + device.getName());
-            } else {
-                Log.i(logtag, "discover_onReceive mReceiver-b.onReceive. else");
-            }
-        }*/
-        String event = tidspunkt9 + "|" + lagretDevice.getSummary_raw() + "|" + action;
 
-        class_Control_Main.writeToSDFile(event);
-        //class_Control_Main.logEvent(event, currentTime);
-        class_Control_Main.logEvent(event, nydato);
-        //Log.i(logtag, "discover_onReceive logMode=" + logMode);
-        if (logMode.contains("Devices")) {
-            setDeviceList();
-        } else {
-            setLogText("onReceive");
+        awaitingLogUpdate = true;
+    }
+
+    private void connectToMAC(String address) {
+        Log.i(logtag, "connectToMAC address=" + address);
+        try {
+            BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+            BluetoothDevice remoteDevice = bluetoothManager.getAdapter().getRemoteDevice(address);
+            Log.i(logtag, "Connected to " + remoteDevice.getName());
+            Log.i(logtag, "Bound=" + remoteDevice.getBondState());
+            Log.i(logtag, "describeContents=" + remoteDevice.describeContents());
+            if (address.equals("8C:79:F5:03:79:29")) {
+                remoteDevice.createBond();
+            }
+            //Log.i(logtag, "connectToMAC try 2 completed. Device="+mBluetoothDevice+", "+mBluetoothDevice.getType()+", "+mBluetoothDevice.getName());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
-    public void leggInnLagretDevice(String linje) {
-        //Log.i(logtag, "leggInnLagretDevice linje="+linje);
+    public void leggInnLagretDevice_fraEvents(String linje) {
+        //Log.i(logtag, "leggInnLagretDevice_fraEvents linje="+linje);
 
         String MAC = linje.substring(20);
         String[] separated = linje.split("\\|");
@@ -395,8 +410,11 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         Object_Device lagretDevice = deviceListe.get(MAC);
         if (lagretDevice == null) {
             Object_Device newDevice = new Object_Device(linje);
-            deviceListe.put(MAC, newDevice);
+            if (newDevice.getMAC() != null) {
+                deviceListe.put(MAC, newDevice);
+            }
         }
+        awaitingLogUpdate = true;
     }
 
 
@@ -407,13 +425,14 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
     @SuppressLint("SetTextI18n")
     private void setDeviceCount() {
+        //Log.i(logtag, "setDeviceCount");
         teller_total = deviceListe.size();
         textview_teller.setText(teller_total + " devices found all-time");
     }
 
     @SuppressLint("SetTextI18n")
-    private void setDeviceList() {
-        //Log.i(logtag, "setDeviceList source=" + source + " logMode=" + logMode);
+    private void setDeviceList(String source, String prvSource) {
+        //Log.i(logtag, "setDeviceList source="+source+" prev.source="+prvSource );
 
         StringBuilder outputTextSortertHTML = new StringBuilder();
 
@@ -422,48 +441,40 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         ZonedDateTime zdt2 = instant.atZone(ZoneId.of("Europe/Oslo"));
 
         teller_total = deviceListe.size();
+        teller_non_null = 0;
         teller_today = 0;
-        for (java.util.Map.Entry<String, Object_Device> stringObject_deviceEntry : deviceListe.entrySet()) {
-            Object_Device devicen = ((Object_Device) ((HashMap.Entry) stringObject_deviceEntry).getValue());
-            if ((!(devicen.getName == null)) && !(devicen.getName.equals("null"))) {
-                if (logMode.contains("today")) {
 
-                    if (((devicen.getLastSeen_Year() == zdt2.getYear()) && (devicen.getLastSeen_Month() == zdt2.getMonth().getValue()) && (devicen.getLastSeen_Day() == zdt2.getDayOfMonth()))) {
-                        outputTextSortertHTML.append("<br><br>").append(devicen.getSummarySimple());
-                        teller_today++;
-                    }
-
-                } else {
-                    outputTextSortertHTML.append("<br><br>").append(devicen.getSummarySimple());
-                }
-            }
-        }
-        //textview_log.setText(outputText.toString());
-
-        /*
-        //sortering bruker ekstremt mye arbeidskraft, og lagger hele appen i lang tid
         List<Object_Device> sorterteDevicer = new ArrayList<>(deviceListe.values());
-        //sorterteDevicer.sort(Comparator.comparing(Object_Device::getSummary_raw)); //ascending etter devicenavn
-        teller = 0;
-        Collections.sort(sorterteDevicer,new Comparator<Object_Device>() { //descending etter sist sett
-            @Override
-            public int compare(Object_Device a, Object_Device b) {
-                return b.getLastSeen("setDeviceList sort").compareTo(a.getLastSeen("setDeviceList sort"));
-            }
+        sorterteDevicer.sort((a, b) -> {
+            return b.getLastSeen().compareTo(a.getLastSeen());
         });
 
 
         for (Object_Device p : sorterteDevicer) {
-            //Log.i(logtag, "setDeviceList p.getName="+p.getName+" null? "+(p.getName==null)+" null?="+(p.getName.equals("null")));
-            if ( ( !(p.getName==null)) && !(p.getName.equals("null")) ) {
-                outputTextSortertHTML.append("<br><br>").append(p.getSummarySimple());
+            if (!p.isAnonymous()) {
+                teller_non_null++;
+                Object_Device devicen = p;
+                if (((devicen.getLastSeen_Year() == zdt2.getYear()) && (devicen.getLastSeen_Month() == zdt2.getMonth().getValue()) && (devicen.getLastSeen_Day() == zdt2.getDayOfMonth()))) {
+                    teller_today++;
+                    outputTextSortertHTML.append("<br><br>").append(devicen.getSummarySimple("setDeviceList", source));
+                } else {
+                    if (devicen.getLastSeen_Year() == zdt2.getYear()) {
+                        if (devicen.getLastSeen_Month() == zdt2.getMonth().getValue()) {
+                            devicen.getLastSeen_Day();
+                            zdt2.getDayOfMonth();//Log.i(logtag, "setDeviceList "+teller_non_null+ " samme dag, viser uansett");
+                        }  //Log.i(logtag, "setDeviceList "+teller_non_null+ " feil mnd: devicen.getLastSeen_Month()="+devicen.getLastSeen_Month()+" "+zdt2.getMonth().getValue());
+                    }  //Log.i(logtag, "setDeviceList "+teller_non_null+ " Feil år: devicen.getLastSeen_Year()="+devicen.getLastSeen_Year()+" "+zdt2.getYear());
+                    if (!logMode.contains("today")) {
+                        //Log.i(logtag, "setDeviceList viser alle uansett");
+                        outputTextSortertHTML.append("<br><br>").append(devicen.getSummarySimple("setDeviceList", source));
+                    }
+                }
             }
-            teller++;
         }
-*/
+
 
         textview_log.setText(Html.fromHtml(outputTextSortertHTML.toString()));
-        textview_teller.setText(teller_total + " devices found all-time, of which " + teller_today + " were last seen today");
+        textview_teller.setText(teller_total + " devices found all-time, of which " + teller_non_null + " are identified. " + teller_today + " of these were last seen today");
 
         //Log.i(logtag, "setDeviceList outputTextSortertHTML="+outputTextSortertHTML);
     }
@@ -476,25 +487,74 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
             //Log.i(logtag, "Runnable.run");
             //Log.i(logtag, "Runnable.run mBluetoothAdapter.isDiscovering()="+mBluetoothAdapter.isDiscovering());
             if (mBluetoothAdapter.isDiscovering()) {
-                ((Button)findViewById(R.id.button_discover)).setText(text_On);
+                ((Button) findViewById(R.id.button_discover)).setText(text_On);
             } else {
-                ((Button)findViewById(R.id.button_discover)).setText(text_Off);
+                ((Button) findViewById(R.id.button_discover)).setText(text_Off);
             }
 
-            selfRunningHandler.postDelayed(this, 500);
+            if (awaitingLogUpdate) {
+                if (logMode.contains("Devices")) {
+                    setDeviceList("Runnable.run", "-");
+                } else {
+                    setLogText("Runnable.run");
+                }
+                awaitingLogUpdate = false;
+            }
+
+            selfRunningHandler.postDelayed(this, 1000);
         }
     };
+
+    public void leggInnLagretDevice_fraDevices(String test) {
+        //Log.i(logtag, "leggInnLagretDevice_fraDevices test="+test);
+        int tellerFoer = deviceListe.size();
+
+        String MAC = "";
+        String[] separated = test.split("\\|");
+        for (String item : separated) {
+            if (item.contains(".")) {
+            } else if (item.contains(":")&& (item.length()==17)) {
+                //Log.i(logtag, "leggInnLagretDevice_fraDevices vil sette MAC="+item);
+                MAC = item;
+            }
+        }
+        if (MAC.length()==0){
+            return;
+        }
+        //Log.i(logtag, "leggInnLagretDevice_fraDevices MAC="+MAC);
+
+        Object_Device lagretDevice = deviceListe.get(MAC);
+        if (lagretDevice == null) {
+            //Log.i(logtag, "leggInnLagretDevice_fraDevices legger inn ny device, MAC="+MAC);
+            Object_Device newDevice = new Object_Device(test, "leggInnLagretDevice_fraDevices");
+            if ( newDevice.getMAC()==null){
+
+            } else {
+                deviceListe.put(MAC, newDevice);
+            }
+        }
+
+        int tellerEtter = deviceListe.size();
+        int diff = tellerEtter - tellerFoer;
+        if (diff == 0) {
+            //Log.i(logtag, "leggInnLagretDevice_fraDevices 1 ble ikke lagret: MAC=" + MAC);
+            if (lagretDevice == null) {
+                Log.i(logtag, "leggInnLagretDevice_fraDevices 2a aldri blitt lagret: MAC=" + MAC);
+            } else {
+                //Log.i(logtag, "leggInnLagretDevice_fraDevices 2b allerede lagret: MAC=" + MAC);
+            }
+        }
+    }
 
     //tells handler to send a message
     class RestartDiscovery extends TimerTask {
 
         @Override
         public void run() {
-            //Log.i(logtag, "RestartDiscovery.run");
-            //Log.i(logtag, "RestartDiscovery.run 1 mBluetoothAdapter.isDiscovering()="+mBluetoothAdapter.isDiscovering());
+
             mBluetoothAdapter.startDiscovery();
-            //Log.i(logtag, "RestartDiscovery.run 2 mBluetoothAdapter.isDiscovering()="+mBluetoothAdapter.isDiscovering());
-            //h.sendEmptyMessage(0);
+            class_Control_Main.writeDevicesToFile(deviceListe);
+
         }
     }
 
@@ -517,7 +577,9 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         timer.cancel();
         timer.purge();
         selfRunningHandler.removeCallbacks(run);
-        Button b = (Button)findViewById(R.id.button_discover);
+        Button b = (Button) findViewById(R.id.button_discover);
         b.setText(text_Off);
     }
+
+
 }

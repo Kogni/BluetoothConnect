@@ -71,6 +71,20 @@ public class Dato {
     }
 
     public String getDate() {
-        return year+ "." + month+"."+dayOfMonth+" "+hour+":"+minute+":"+second+"."+millisecond;
+        //pad
+        String month_s = String.valueOf(month);
+        String day_s = String.valueOf(dayOfMonth);
+        String hour_s = String.valueOf(hour);
+        String minute_s = String.valueOf(minute);
+        String second_s = String.valueOf(second);
+        String millisecond_s = String.valueOf(millisecond);
+        if ( month_s.length()<2) month_s = "0"+month_s;
+        if ( day_s.length()<2) day_s = "0"+day_s;
+        if ( hour_s.length()<2) hour_s = "0"+hour_s;
+        if ( minute_s.length()<2) minute_s = "0"+minute_s;
+        if ( second_s.length()<2) second_s = "0"+second_s;
+        while ( millisecond_s.length()<4) millisecond_s = "0"+millisecond_s;
+        //return year+ "." + month+"."+dayOfMonth+" "+hour+":"+minute+":"+second+"."+millisecond;
+        return year+ "." + month_s+"."+day_s+" "+hour_s+":"+minute_s+":"+second_s+"."+millisecond_s;
     }
 }

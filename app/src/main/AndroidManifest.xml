@@ -29,6 +29,7 @@
         android:requestLegacyExternalStorage="true"
         android:foregroundServiceType="location"
         android:exported="true"
+        android:hardwareAccelerated="true"
         >
         <activity
             android:name=".view.View_Main_Startup"
