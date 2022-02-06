@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Bluetooth Connect</string>
+    <string name="discover_devices">Discover devices</string>
+    <string name="device_log">Device log</string>
+    <string name="todays_devices">Todays devices</string>
+    <string name="antall_funnet">Antall funnet</string>
+    <string name="logg">Logg</string>
 </resources>

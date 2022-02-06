@@ -27,6 +27,9 @@ public class Dato {
     }
 
     public void setHour(int newHour) {
+        if ( newHour>24){
+            newHour = 0;
+        }
         hour = newHour;
     }
 
