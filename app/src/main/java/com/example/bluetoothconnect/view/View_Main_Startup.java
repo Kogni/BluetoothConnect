@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,6 +18,7 @@ import android.os.RemoteException;
 import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.TextView;
@@ -44,9 +46,15 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -86,20 +94,25 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
     };
 
     //devices found
-    String logMode = "Events";
+    String logMode = "Devices today";
     public HashMap<String, Object_Device> deviceListe;
 
     private TextView textview_log;
     private TextView textview_teller;
+    private TextView textview_stats_producttype;
 
     int teller_total = 0;
-    int teller_non_null = 0;
-    int teller_today = 0;
+    int teller_identified = 0;
+    int teller_today_total = 0;
+    int teller_today_identified = 0;
 
-    Timer timer = new Timer();
+    Timer motherOfTimers = new Timer();
     long starttime = 0;
+    int tidSidenForrigeDiscovery = 60 * 1000;
+    boolean runningDiscovery = false;
 
     String text_Off = "Paused discovery";
+    String text_interval = "Restarting...";
     String text_On = "Discovering...";
     boolean awaitingLogUpdate = false;
 
@@ -109,7 +122,10 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         super.onCreate(savedInstanceState);
         //Log.i(logtag, "onCreate");
 
+        int orient = getRequestedOrientation();
+
         setContentView(R.layout.activity_main);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
 
         class_Control_Main = new Control_Main(this);
 
@@ -134,24 +150,29 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
         final Button button_devices = findViewById(R.id.button_displayDevices);
         final Button button_devices_today = findViewById(R.id.button_displayDevices_today);
+        final Button button_quit = findViewById(R.id.button_quit);
+        final Button button_stats_producttype = findViewById(R.id.button_stats_producttype);
 
         Button b = findViewById(R.id.button_discover);
         b.setText(text_Off);
         b.setOnClickListener(v -> {
-            Log.i(logtag, "onClick (timer)");
+            Log.i(logtag, "onClick (timer, button_discover). mBluetoothAdapter.isEnabled()=" + mBluetoothAdapter.isEnabled());
+            mBluetoothAdapter.enable();
             Button b1 = (Button) v;
             if (b1.getText().equals(text_On)) {
-                timer.cancel();
-                timer.purge();
+                motherOfTimers.cancel();
+                motherOfTimers.purge();
                 selfRunningHandler.removeCallbacks(run);
                 b1.setText(text_Off);
+                runningDiscovery = false;
             } else {
                 starttime = System.currentTimeMillis();
-                timer = new Timer();
-                timer.schedule(new RestartDiscovery(), 0, 60000);
-                timer.schedule(new secondTask(), 0, 1000);
+                motherOfTimers = new Timer();
+                motherOfTimers.schedule(new RestartDiscovery(), 0, 1000); //varighet av discovery varierer
+                motherOfTimers.schedule(new secondTask(), 0, 1000);
                 selfRunningHandler.postDelayed(run, 0);
                 b1.setText(text_On);
+                runningDiscovery = true;
             }
         });
 
@@ -160,12 +181,34 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
             logMode = "Devices";
             setDeviceList();
             awaitingLogUpdate = true;
+            textview_log.setVisibility(View.VISIBLE);
+            textview_stats_producttype.setVisibility(View.INVISIBLE);
         });
         button_devices_today.setOnClickListener(arg0 -> {
             //Log.i(logtag, "onCreate, button_devices_today");
             logMode = "Devices today";
             setDeviceList();
             awaitingLogUpdate = true;
+            textview_log.setVisibility(View.VISIBLE);
+            textview_stats_producttype.setVisibility(View.INVISIBLE);
+        });
+        button_stats_producttype.setOnClickListener(arg0 -> {
+            Log.i(logtag, "onCreate, button_stats_producttype");
+            logMode = "";
+            setStatistics_producttype();
+            awaitingLogUpdate = true;
+            textview_log.setVisibility(View.INVISIBLE);
+            textview_stats_producttype.setVisibility(View.VISIBLE);
+        });
+        button_quit.setOnClickListener(arg0 -> {
+            Log.i(logtag, "onCreate, button_quit");
+            System.gc();
+            this.finishAffinity();
+            this.finishAndRemoveTask();
+            int pid = android.os.Process.myPid();
+            android.os.Process.killProcess(pid);
+
+            awaitingLogUpdate = false;
         });
 
         assert mBluetoothAdapter != null;
@@ -191,14 +234,69 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
         textview_log = findViewById(R.id.log);
         textview_log.setMovementMethod(new ScrollingMovementMethod());
-        textview_log.setText("onCreate");
+        textview_log.setText("");
 
         textview_teller = findViewById(R.id.telling);
         textview_teller.setMovementMethod(new ScrollingMovementMethod());
-        textview_teller.setText("onCreate");
+        textview_teller.setText("");
+
+        textview_stats_producttype = findViewById(R.id.stats_producttype);
+        textview_stats_producttype.setMovementMethod(new ScrollingMovementMethod());
+        textview_stats_producttype.setText("");
 
         setDeviceCount();
-        Log.i(logtag, "onCreate TVn min="+deviceListe.get("8C:79:F5:03:79:29"));
+        setRequestedOrientation(orient);
+    }
+
+    private void setStatistics_producttype() {
+        Log.i(logtag, "setStatistics_producttype");
+
+        StringBuilder outputTextSortertHTML = new StringBuilder();
+
+        Instant instant = Instant.now();
+        instant.atOffset(ZoneOffset.UTC);
+        ZonedDateTime zdt2 = instant.atZone(ZoneId.of("Europe/Oslo"));
+
+        HashMap<String, Integer> productType;
+        productType = new HashMap<>();
+        //iterate alle devicer funnet
+        List<Object_Device> sorterteDevicer = new ArrayList<>(deviceListe.values());
+        for (Object_Device p : sorterteDevicer) {
+            //if (!p.isAnonymous()) {
+                //legg til producttype-stats
+                if ( productType.get(p.getProductType())== null ) {
+                    //Log.i(logtag, "setStatistics_producttype la til "+p.getProductType());
+                    productType.put(p.getProductType(), 1);
+               } else {
+                    productType.put(p.getProductType(), productType.get(p.getProductType()) + 1);
+                }
+            //}
+        }
+        //sorter product type stats
+        List<Map.Entry<String, Integer>> list = new LinkedList<Map.Entry<String, Integer>>(productType.entrySet());
+        Collections.sort(list, new Comparator<Object>() {
+            @SuppressWarnings("unchecked")
+            public int compare(Object o1, Object o2) {
+                return ((Map.Entry<String, Integer>) o1).getValue().compareTo(
+                        ((Map.Entry<String, Integer>) o2).getValue());
+            }
+        });
+        Collections.reverse(list);
+        Map<String, Integer> sortedMap = new LinkedHashMap<String, Integer>();
+        for (Iterator<Map.Entry<String, Integer>> it = list.iterator(); it.hasNext();) {
+            Map.Entry<String, Integer> entry = it.next();
+            sortedMap.put(entry.getKey(), entry.getValue());
+        }
+
+        //skriv ut i HTML
+        for (Map.Entry<String, Integer> entry : sortedMap.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            outputTextSortertHTML.append("<br>").append(key+": "+value+" devices found");
+        }
+
+        textview_stats_producttype.setText(Html.fromHtml(outputTextSortertHTML.toString()));
+
     }
 
     public static void verifyPermissions(Activity activity) {
@@ -295,7 +393,7 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
     }
 
     private void discover_onReceive(Intent intent) {
-        //Log.i(logtag, "discover_onReceive");
+        //Log.i(logtag, "discover_onReceive. View_Main_Startup.this.hasWindowFocus()="+View_Main_Startup.this.hasWindowFocus());
 
         BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 
@@ -340,7 +438,7 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
             if (diffInSecs < 1) {//spam
                 return;
             }
-            if ( lagretDevice.isAnonymous()){
+            if (device.getName() == null) {
                 lagretDevice.updateAnonymous(device);
             }
         }
@@ -391,18 +489,21 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         ZonedDateTime zdt2 = instant.atZone(ZoneId.of("Europe/Oslo"));
 
         teller_total = deviceListe.size();
-        teller_non_null = 0;
-        teller_today = 0;
+        teller_identified = 0;
+        teller_today_identified = 0;
+        teller_today_total = 0;
 
         List<Object_Device> sorterteDevicer = new ArrayList<>(deviceListe.values());
         sorterteDevicer.sort((a, b) -> b.getLastSeen().compareTo(a.getLastSeen()));
 
         for (Object_Device p : sorterteDevicer) {
-
+            if (((p.getLastSeen_Year() == zdt2.getYear()) && (p.getLastSeen_Month() == zdt2.getMonth().getValue()) && (p.getLastSeen_Day() == zdt2.getDayOfMonth()))) {
+                teller_today_total ++;
+            }
             if (!p.isAnonymous()) {
-                teller_non_null++;
+                teller_identified++;
                 if (((p.getLastSeen_Year() == zdt2.getYear()) && (p.getLastSeen_Month() == zdt2.getMonth().getValue()) && (p.getLastSeen_Day() == zdt2.getDayOfMonth()))) {
-                    teller_today++;
+                    teller_today_identified++;
                     outputTextSortertHTML.append("<br><br>").append(p.getSummarySimple());
                 } else {
 
@@ -422,32 +523,9 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
 
         textview_log.setText(Html.fromHtml(outputTextSortertHTML.toString()));
-        textview_teller.setText(teller_total + " devices found all-time, of which " + teller_non_null + " are (partially) identified. " + teller_today + " of these were last seen today");
+        textview_teller.setText(teller_total + " devices found all-time, of which " + teller_identified + " are (partially) identified. " + teller_today_total+" devices found today, "+ teller_today_identified + " of these were (partially) identified.");
 
     }
-
-    //runs without timer be reposting self
-    Handler selfRunningHandler = new Handler();
-    Runnable run = new Runnable() {
-
-        public void run() {
-            //Log.i(logtag, "Runnable.run");
-            if (mBluetoothAdapter.isDiscovering()) {
-                ((Button) findViewById(R.id.button_discover)).setText(text_On);
-            } else {
-                ((Button) findViewById(R.id.button_discover)).setText(text_Off);
-            }
-
-            if (awaitingLogUpdate) {
-                if (logMode.contains("Devices")) {
-                    setDeviceList();
-                }
-                awaitingLogUpdate = false;
-            }
-
-            selfRunningHandler.postDelayed(this, 2000);
-        }
-    };
 
     public void leggInnLagretDevice_fraDevices(String test) {
         //Log.i(logtag, "leggInnLagretDevice_fraDevices test="+test);
@@ -455,11 +533,11 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
         //sjekk om linjen inneholder flere devicer
         long count = test.chars().filter(ch -> ch == '|').count();
-        if ( count >= 14) {
+        if (count >= 14) {
             int end = test.indexOf("|202");
-            String device1 = test.substring(0, (end+25));
-            String device2 = test.substring((end+25));
-            if ( device2.length()==0){
+            String device1 = test.substring(0, (end + 25));
+            String device2 = test.substring((end + 25));
+            if (device2.length() == 0) {
             } else {
                 leggInnLagretDevice_fraDevices(device1);
                 leggInnLagretDevice_fraDevices(device2);
@@ -494,15 +572,50 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
         }
     }
 
+
+    //runs without timer be reposting self
+    Handler selfRunningHandler = new Handler();
+    Runnable run = new Runnable() {
+
+        public void run() { //oppdaterer knapp og device list
+            //Log.i(logtag, "Runnable.run. mBluetoothAdapter.isDiscovering()="+mBluetoothAdapter.isDiscovering()+" tidSidenForrigeDiscovery="+tidSidenForrigeDiscovery);
+            if (mBluetoothAdapter.isDiscovering()) {
+                ((Button) findViewById(R.id.button_discover)).setText(text_On);
+                tidSidenForrigeDiscovery = 0;
+            } else {
+                tidSidenForrigeDiscovery = tidSidenForrigeDiscovery + 500;
+                if (runningDiscovery) {
+                    ((Button) findViewById(R.id.button_discover)).setText(text_interval);
+                } else {
+                    ((Button) findViewById(R.id.button_discover)).setText(text_Off);
+                }
+            }
+
+            if (awaitingLogUpdate) {
+                if (logMode.contains("Devices")) {
+                    setDeviceList();
+                }
+                awaitingLogUpdate = false;
+            }
+
+            selfRunningHandler.postDelayed(this, 500);
+        }
+    };
+
     //tells handler to send a message
     class RestartDiscovery extends TimerTask {
 
         @Override
         public void run() {
-
-            mBluetoothAdapter.startDiscovery();
-            class_Control_Main.writeDevicesToFile(deviceListe);
-
+            //Log.i(logtag, "RestartDiscovery.run. View_Main_Startup.this.hasWindowFocus()="+View_Main_Startup.this.hasWindowFocus()+" tidSidenForrigeDiscovery="+tidSidenForrigeDiscovery);
+            if (View_Main_Startup.this.hasWindowFocus() == true) {
+                if (tidSidenForrigeDiscovery > 5000) {
+                    class_Control_Main.writeDevicesToFile(deviceListe);
+                    mBluetoothAdapter.startDiscovery();
+                }
+            } else {
+                Log.i(logtag, "RestartDiscovery.run. App i dvale, ikke kjør");
+            }
         }
     }
 
@@ -511,7 +624,7 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
 
         @Override
         public void run() {
-            //Log.i(logtag, "secondTask.run");
+            //Log.i(logtag, "secondTask.run. View_Main_Startup.this.hasWindowFocus()="+View_Main_Startup.this.hasWindowFocus());
             View_Main_Startup.this.runOnUiThread(() -> {
                 //Log.i(logtag, "secondTask.run.run");
             });
@@ -519,14 +632,17 @@ public class View_Main_Startup extends AppCompatActivity implements BeaconConsum
     }
 
     @Override
-    public void onPause() {
+    public void onPause() { //trigges når app legges i bakgrunnen. Stopper alle timere
         super.onPause();
+        //vurder å la kjøring fortsette så lenge mobil er i lademodus
         Log.i(logtag, "onPause");
-        timer.cancel();
-        timer.purge();
+        motherOfTimers.cancel();
+        motherOfTimers.purge();
         selfRunningHandler.removeCallbacks(run);
         Button b = findViewById(R.id.button_discover);
         b.setText(text_Off);
+        //mBluetoothAdapter.disable(); //smittestopp-Appen trenger at Bluetooth alltid er på
+        Log.i(logtag, "onClick (timer, button_discover). mBluetoothAdapter.isEnabled()=" + mBluetoothAdapter.isEnabled());
     }
 
 

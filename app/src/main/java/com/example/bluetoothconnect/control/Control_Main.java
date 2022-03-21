@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -28,6 +30,8 @@ public class Control_Main {
 
     //HashMap<Dato, String> loggListe_dato;
     HashMap<String, String> loggListe_String;
+
+    int logsRead = 0;
 
     public Control_Main(View_Main_Startup view_main) {
         class_View_Main = view_main;
@@ -102,8 +106,9 @@ public class Control_Main {
 
 
     public void readRawDevices() {
-        //Log.i(logtag, "readRawDevices start");
+        logsRead = 0;
 
+        String path = Environment.getExternalStorageDirectory().toString() + "/Berits_apper";
         try {
             File sdcard = Environment.getExternalStorageDirectory();
             File file = new File(sdcard, "/Berits_apper/" + "BluetoothConnect_Devices.txt");
@@ -111,58 +116,63 @@ public class Control_Main {
 
             InputStreamReader isr = new InputStreamReader(is);
             BufferedReader br = new BufferedReader(isr, 8192);    // 2nd arg is buffer size
-
-            try {
-                String test;
-                while (true) {
-                    test = br.readLine();
-                    if (test == null) break;
-
-                    class_View_Main.leggInnLagretDevice_fraDevices(test);
-                }
-                isr.close();
-                is.close();
-                br.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            logsRead = logsRead+lesFil(path, file.getName());
+            Log.d(logtag, "readRawDevices.1 logsRead:" + logsRead);
         } catch (IOException e) {
             e.printStackTrace();
         }
         Log.i(logtag, " count 1=" + class_View_Main.deviceListe.size());
+        Log.i(logtag, " Devices saved #1: " + class_View_Main.deviceListe.size());
 
         try {
-            String path = Environment.getExternalStorageDirectory().toString() + "/Berits_apper";
-            Log.d(logtag, "Directory path: " + path);
             File directory = new File(path);
             File[] files = directory.listFiles();
+            Arrays.sort(files, Collections.reverseOrder());
             Log.d(logtag, "Files in directory: " + files.length);
             for (File value : files) {
-                String filename = value.getName();
-                Log.d(logtag, "FileName:" + value.getName());
-                if (filename.contains("_Devices2")) {
-                    File file = new File(path, filename);
-                    InputStream is = new FileInputStream(file);
-
-                    InputStreamReader isr = new InputStreamReader(is);
-                    BufferedReader br = new BufferedReader(isr, 8192);    // 2nd arg is buffer size
-
-                    String test;
-                    while (true) {
-                        test = br.readLine();
-                        if (test == null) break;
-
-                        class_View_Main.leggInnLagretDevice_fraDevices(test);
-                    }
-                    isr.close();
-                    is.close();
-                    br.close();
+                if (( logsRead <3 ) && (!value.getName().equals("BluetoothConnect_Devices.txt"))) {
+                    logsRead = logsRead+lesFil(path, value.getName());
+                    Log.d(logtag, "readRawDevices.2 logsRead:" + logsRead);
                 }
             }
+            Log.i(logtag, " Devices saved #2: " + class_View_Main.deviceListe.size());
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Log.i(logtag, " Devices saved: " + class_View_Main.deviceListe.size());
-        //Log.i(logtag, "readRawDevices TVn min="+class_View_Main.deviceListe.get("8C:79:F5:03:79:29"));
+        Log.i(logtag, " Devices saved #3: " + class_View_Main.deviceListe.size());
+    }
+
+    private int lesFil(String path, String filnavn){
+        Log.d(logtag, "lesFil FileName:" + filnavn);
+        Log.d(logtag, "lesFil.1 logsRead:" + logsRead);
+        try {
+                if ( logsRead <3 ) {
+                    //Log.d(logtag, "FileName:" + value.getName());
+                    if (filnavn.contains("_Devices2")) {
+                        File file = new File(path, filnavn);
+                        InputStream is = new FileInputStream(file);
+
+                        InputStreamReader isr = new InputStreamReader(is);
+                        BufferedReader br = new BufferedReader(isr, 8192);    // 2nd arg is buffer size
+
+                        String test;
+                        while (true) {
+                            test = br.readLine();
+                            if (test == null) break;
+
+                            class_View_Main.leggInnLagretDevice_fraDevices(test);
+                            //Log.i(logtag, "lesFil Devices saved: " + class_View_Main.deviceListe.size());
+                        }
+                        isr.close();
+                        is.close();
+                        br.close();
+                    }
+                }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+        Log.d(logtag, "lesFil.2 logsRead:" + logsRead);
+        return 1;
     }
 }

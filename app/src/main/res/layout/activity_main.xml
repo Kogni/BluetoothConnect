@@ -33,8 +33,17 @@
             android:layout_height="wrap_content"
             android:layout_alignStart="@+id/button_discover"
             android:layout_marginTop="0dp"
-            android:layout_marginStart="180dp"
+            android:layout_marginStart="200dp"
             android:text="@string/device_log" />
+
+        <Button
+            android:id="@+id/button_quit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignStart="@+id/button_displayDevices"
+            android:layout_marginTop="0dp"
+            android:layout_marginStart="200dp"
+            android:text="@string/X" />
 
         <Button
             android:id="@+id/button_displayDevices_today"
@@ -44,6 +53,14 @@
             android:layout_marginTop="0dp"
             android:layout_marginStart="20dp"
             android:text="@string/todays_devices" />
+        <Button
+            android:id="@+id/button_stats_producttype"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignStart="@+id/button_discover"
+            android:layout_marginTop="40dp"
+            android:layout_marginStart="200dp"
+            android:text="Product types" />
 
         <TextView
             android:id="@+id/telling"
@@ -52,7 +69,6 @@
             android:layout_below="@id/button_displayDevices_today"
             android:layout_marginStart="20dp"
             android:layout_marginBottom="20dp"
-            android:hint="@string/antall_funnet"
             android:scrollbars = "vertical"
             />
 
@@ -62,7 +78,14 @@
             android:layout_height="wrap_content"
             android:layout_below="@id/telling"
             android:layout_marginStart="20dp"
-            android:hint="@string/logg"
+            android:scrollbars = "vertical"
+            />
+        <TextView
+            android:id="@+id/stats_producttype"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/telling"
+            android:layout_marginStart="20dp"
             android:scrollbars = "vertical"
             />
 

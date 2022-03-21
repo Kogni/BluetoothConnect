@@ -300,7 +300,7 @@ public class Object_Device {
         switch (getBluetoothClass) {
             case "2a010c":
                 bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Computer, laptop, with network, capturing and audio)</b>";
-                manual_producttype = "<b>Laptop</b>";
+                manual_producttype = "<b>Laptop computer</b>";
                 break;
             case "2a0104":
                 bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Computer, desktop, with network, capturing, audio)</b>";
@@ -358,7 +358,7 @@ public class Object_Device {
                 break;
             case "704":
                 bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Wearable, smart watch)</b>";
-                manual_producttype = "<b>Smart watch</b>";
+                manual_producttype = "<b>Wearable, smart watch</b>";
                 break;
             case "2010c":
                 bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Computer, laptop, with network)</b>";
@@ -412,7 +412,7 @@ public class Object_Device {
                 bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Wearable, smart watch, with capturing, audio)</b>";
                 break;
             case "340404":
-                bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Audio/vicdeo, wearable, headset, with rendering, object transfer, audio)</b>";
+                bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Audio/video, wearable, headset, with rendering, object transfer, audio)</b>";
                 break;
             case "340408":
                 bluetoothClass_GUI = bluetoothClass_GUI + "<b>(Audio/video, handsfree, with rendering, object transfer, audio)</b>";
@@ -549,24 +549,36 @@ public class Object_Device {
             if (getName.toLowerCase(Locale.ROOT).contains("[lg] webos")) {
                 manual_producttype = "<b>TV</b>";
             }
+            if (getName.toLowerCase(Locale.ROOT).contains("lg webos tv")) {
+                manual_producttype = "<b>TV</b>";
+            }
             if (getName.toLowerCase(Locale.ROOT).contains("[signage]")) {
                 manual_producttype = "<b>TV, signage</b>";
             }
+            if (getName.toLowerCase(Locale.ROOT).contains("googlehome")) {
+                manual_producttype = "<b>Peripheral, smartbox</b>";
+            }
+            if (getName.toLowerCase(Locale.ROOT).contains("telia box")) {
+                manual_producttype = "<b>Peripheral, smartbox</b>";
+            }
 
-            if ((getName.toLowerCase(Locale.ROOT).contains("phone")) && (!getName.toLowerCase(Locale.ROOT).contains("headphone"))) {
-                manual_producttype = "<b>Phone, smart</b>";
+            if ((getName.toLowerCase(Locale.ROOT).contains("phone")) && (!getName.toLowerCase(Locale.ROOT).contains("headphone")) && (!getName.toLowerCase(Locale.ROOT).contains("earphone"))) {
+                manual_producttype = "<b>Smart phone</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("huawei mate")) {
-                manual_producttype = "<b>Phone, smart</b>";
+                manual_producttype = "<b>Smart phone</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("huawei p20")) {
-                manual_producttype = "<b>Phone, smart</b>";
+                manual_producttype = "<b>Smart phone</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("huawei p30")) {
-                manual_producttype = "<b>Phone, smart</b>";
+                manual_producttype = "<b>Smart phone</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("galaxy")) {
-                manual_producttype = "<b>Phone, smart</b>";
+                manual_producttype = "<b>Smart phone</b>";
+            }
+            if (getName.toLowerCase(Locale.ROOT).contains("oneplus nord")) {
+                manual_producttype = "<b>Smart phone</b>";
             }
 
             if (getName.toLowerCase(Locale.ROOT).contains("watch")) {
@@ -577,6 +589,46 @@ public class Object_Device {
             }
             if (getName.toLowerCase(Locale.ROOT).contains("versa")) {
                 manual_producttype = "<b>Wearable, smart watch</b>";
+            }
+
+            if (getName.toLowerCase(Locale.ROOT).contains("jbl flip")) {
+                manual_producttype = "<b>Loudspeaker</b>";
+            }
+            if (getName.contains("LE_WH-1000XM3")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("LE_WH-XB900N")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("LE-Bose QC35 II")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("LE_WH-H900N (h.ear)")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("LE-Bose QuietComfort 35")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("JBL LIVE650BTNC-LE")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("JBL TUNE225TWS-LE")) {
+                manual_producttype = "<b>Wearable, ear buds</b>";
+            }
+            if (getName.contains("JBL TUNE125TWS-LE")) {
+                manual_producttype = "<b>Wearable, ear buds</b>";
+            }
+            if (getName.contains("Jabra ")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("MOMENTUM")) {
+                manual_producttype = "<b>Wearable, headset</b>";
+            }
+            if (getName.contains("Bose Free SoundSport")) {
+                manual_producttype = "<b>Wearable, ear buds</b>";
+            }
+            if (getName.contains("Beoplay E8")) {
+                manual_producttype = "<b>Wearable, ear buds</b>";
             }
 
             if (getName.toLowerCase(Locale.ROOT).contains("cbu")) {
@@ -591,12 +643,21 @@ public class Object_Device {
             if (getName.toLowerCase(Locale.ROOT).contains("spotlight")) {
                 manual_producttype = "<b>Smart light, bulb</b>";
             }
+            if (getName.contains("2x Tunable White")) {
+                manual_producttype = "<b>Smart light, controller</b>";
+            }
+            if (getName.toLowerCase().contains("hue light")) {
+                manual_producttype = "<b>Smart light, bulb</b>";
+            }
+            if (getName.contains("DALI Broadcast")) {
+                manual_producttype = "<b>Smart light, module</b>";
+            }
 
             if (getName.toLowerCase(Locale.ROOT).contains("laptop")) {
-                manual_producttype = "<b>Computer, laptop</b>";
+                manual_producttype = "<b>Laptop computer</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("macbook")) {
-                manual_producttype = "<b>Computer, laptop</b>";
+                manual_producttype = "<b>Tablet device</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("[monitor]")) {
                 manual_producttype = "<b>Computer, screen</b>";
@@ -635,29 +696,44 @@ public class Object_Device {
             if (getName.toLowerCase(Locale.ROOT).contains("obd")) {
                 manual_producttype = "<b>Car device</b>";
             }
-
-            if (getName.toLowerCase(Locale.ROOT).contains("jbl flip")) {
-                manual_producttype = "<b>Loudspeaker</b>";
+            if (deviceClass_GUI.toLowerCase(Locale.ROOT).contains("handsfree")) {
+                manual_producttype = "<b>Car device</b>";
             }
+            if (bluetoothClass_GUI.toLowerCase(Locale.ROOT).contains("handsfree")) {
+                manual_producttype = "<b>Car device</b>";
+            }
+
 
             if (getName.toLowerCase(Locale.ROOT).contains("lime-")) {
-                manual_producttype = "<b>Peripheral, scooter</b>";
+                manual_producttype = "<b>Vehicle, scooter</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("scooter")) {
-                manual_producttype = "<b>Peripheral, scooter</b>";
+                manual_producttype = "<b>Vehicle, scooter</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("tier")) {
-                manual_producttype = "<b>Peripheral, scooter</b>";
+                manual_producttype = "<b>Vehicle, scooter</b>";
             }
 
             if (getName.toLowerCase(Locale.ROOT).contains("toothbrush")) {
-                manual_producttype = "<b>Peripheral, toothbrush</b>";
+                manual_producttype = "<b>Household, toothbrush</b>";
             }
             if (getName.toLowerCase(Locale.ROOT).contains("refrigerator")) {
-                manual_producttype = "<b>Peripheral, refrigerator</b>";
+                manual_producttype = "<b>Household, refrigerator</b>";
             }
-            if (getName.toLowerCase(Locale.ROOT).contains("googlehome")) {
-                manual_producttype = "<b>Peripheral, smartbox</b>";
+            if (getName.contains("MeetUp Soft Remote")) {
+                manual_producttype = "<b>Peripheral, conference cam</b>";
+            }
+            if (getName.toLowerCase(Locale.ROOT).contains("apple pencil")) {
+                manual_producttype = "<b>Peripheral, tablet pen</b>";
+            }
+            if (getName.equals("Tile")) {
+                manual_producttype = "<b>Tracker</b>";
+            }
+            if (getName.equals("HB01")) {
+                manual_producttype = "<b>Peripheral, music pedal</b>";
+            }
+            if (getName.equals("ENVY Photo 6200 series")) {
+                manual_producttype = "<b>Peripheral, printer</b>";
             }
         }
 
@@ -681,13 +757,28 @@ public class Object_Device {
             deviceHightlightText = ", Pappas tlf";
         } else if (this.MAC.equals("D0:31:42:AA:0C:3C")) { //pappas amazfit
             this.deviceHighlightColor = "#ff9933";
-            deviceHightlightText = ", Pappas Amazfit";
+            deviceHightlightText = ", Pappas Amazfit #1";
+        } else if (this.MAC.equals("D0:31:54:5D:A1:EA")) { //pappas amazfit
+            this.deviceHighlightColor = "#ff9933";
+            deviceHightlightText = ", Pappas Amazfit #2";
         } else if (this.MAC.equals("84:76:37:39:08:CD")) { //olivers tlf
             this.deviceHighlightColor = "#ff1a1a";
             deviceHightlightText = ", Olivers tlf";
         } else if (this.MAC.equals("14:20:5E:86:22:07")) { //enten Olivers eller Marias nettbrett
             this.deviceHighlightColor = "#ff1a1a";
             deviceHightlightText = ", Oliver eller Marias iPad";
+        } else if (this.MAC.equals("7D:10:34:5E:36:FF")) { //Marias laptop
+            this.deviceHighlightColor = "#ffc61a";
+            deviceHightlightText = ", Marias laptop";
+        } else if (this.MAC.equals("C3:AB:45:C9:D8:54")) { //Marias apple pencil
+            this.deviceHighlightColor = "#ff9933";
+            deviceHightlightText = ", Marias pad pen";
+        } else if (this.MAC.equals("7C:BB:8A:BC:1A:15")) { //Elisabeth's Pokemon GO Plus, wearable
+            this.deviceHighlightColor = "#ff1a1a";
+            deviceHightlightText = ", Elisabeths wearable";
+        } else if ((getName!= null) && (getName.equals("NOML-XPHKH7RM"))) { //Z's laptop
+            this.deviceHighlightColor = "#ffc61a";
+            deviceHightlightText = ", Z's laptop";
 
         } else if (bluetoothClass_GUI.toLowerCase(Locale.ROOT).contains("phone")) {
             this.deviceHighlightColor = "#cc0000";
@@ -1246,5 +1337,35 @@ public class Object_Device {
         getMajorDeviceClass = device.getBluetoothClass().getMajorDeviceClass();
         getBondState = device.getBondState();
         makeSummarySimple2();
+    }
+
+    public String getProductType() {
+        String productType = "Deviceclass: "+getMajorDeviceClass+", "+getDeviceClass;
+        if ( deviceClass_GUI.equals("")==false) {
+            productType = "deviceClass_GUI: "+deviceClass_GUI;
+        }
+        if (( isAnonymous() ) && (deviceClass_GUI.equals("")) && (manual_producttype.equals("")) && (getName.equals("null"))) {
+            productType = "Unidentified";
+            //Log.i(logtag, "getProductType: deviceClass_GUI="+deviceClass_GUI+" manual_producttype="+manual_producttype+" name="+this.getName);
+        } else if ( manual_producttype.equals("")) {
+            productType = "Not categorized";
+            //Log.i(logtag, "getProductType: deviceClass_GUI="+deviceClass_GUI+" manual_producttype="+manual_producttype+" name="+this.getName);
+        } else  {
+            productType = manual_producttype;
+        }
+
+        if ( deviceClass_GUI.contains("Computer, laptop")){
+            //Log.i(logtag, "getProductType: deviceClass_GUI="+deviceClass_GUI+" manual_producttype="+manual_producttype+" name="+this.getName);
+        }
+        if ( deviceClass_GUI.contains("Printer")){
+            //Log.i(logtag, "getProductType: deviceClass_GUI="+deviceClass_GUI+" manual_producttype="+manual_producttype+" name="+this.getName);
+        }
+        if ( deviceClass_GUI.contains("loudspeaker")){
+            //Log.i(logtag, "getProductType: deviceClass_GUI="+deviceClass_GUI+" manual_producttype="+manual_producttype+" name="+this.getName);
+        }
+        if ( deviceClass_GUI.contains("headset")){
+            //Log.i(logtag, "getProductType: deviceClass_GUI="+deviceClass_GUI+" manual_producttype="+manual_producttype+" name="+this.getName);
+        }
+        return productType;
     }
 }
